@@ -1,18 +1,21 @@
 # explorer-mintchain-to-csv
 
-A tool designed to streamline the process of exporting blockchain transaction data to a Koinly-compatible CSV file. By utilizing the Explorer MintChain API, this project automatically fetches transaction data, including transfers, fees, and token movements, and generates a CSV file that can be imported into Koinly for tax reporting and portfolio tracking.
+A tool designed to streamline the process of exporting blockchain transaction data to a Koinly-compatible CSV file. By utilizing the Explorer MintChain API, this project automatically fetches transaction data, including transfers, fees, and token movements, and generates a CSV or JSON file that can be imported into Koinly for tax reporting and portfolio tracking.
 
 ## Features
 
 - Fetches transactions, token transfers, and internal transactions from the MintChain Explorer API.
 - Combines and sorts the data by timestamp.
-- Exports the transaction data to a CSV file compatible with Koinly.
-- Configurable wallet address and timeout settings for API requests.
+- Exports the transaction data to CSV (Koinly-compatible) or JSON format.
+- Filter transactions by date range.
+- Configurable wallet address via environment variable or command-line argument.
 
 ## Requirements
 
 - Python 3.6 or higher
-- Requests library (`pip install requests`)
+- Required packages:
+  - `requests` - HTTP library for API requests
+  - `python-dotenv` - Environment variable management
 
 ## Installation
 
@@ -36,48 +39,83 @@ A tool designed to streamline the process of exporting blockchain transaction da
 
 ## Configuration
 
-1. Create a `.env` file in the project root directory to store your wallet address:
+1. Copy the `.env.example` file to `.env`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and add your wallet address:
 
    ```bash
    WALLET_ADDRESS=your_wallet_address_here
    ```
 
-2. Modify the `main.py` file to read the wallet address from the `.env` file.
-
 ## Usage
 
-To run the script and export the blockchain transaction data:
+### Basic Usage
 
-1. Ensure your wallet address is correctly configured in the `.env` file.
-2. Run the script:
+Run the script with default settings (uses wallet from `.env`, outputs CSV):
 
-   ```bash
-   python main.py
-   ```
+```bash
+python main.py
+```
 
-The script will fetch the data from the MintChain Explorer API, combine and sort the transactions, and then output a CSV file named `blockchain_transactions.csv` in the `output` folder.
+### Command-Line Options
+
+| Option         | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `--wallet`     | Wallet address to fetch transactions for (overrides `.env`)     |
+| `--start-date` | Filter transactions starting from this date (YYYY-MM-DD format) |
+| `--end-date`   | Filter transactions up to this date (YYYY-MM-DD format)         |
+| `--format`     | Output format: `csv` (default) or `json`                        |
+
+### Examples
+
+Export all transactions for a specific wallet:
+
+```bash
+python main.py --wallet 0xYourWalletAddressHere
+```
+
+Export transactions for a specific date range:
+
+```bash
+python main.py --start-date 2024-01-01 --end-date 2024-12-31
+```
+
+Export to JSON format:
+
+```bash
+python main.py --format json
+```
+
+The output file will be saved to the `output/` folder as `blockchain_transactions.csv` or `blockchain_transactions.json`.
 
 ## Example Output
 
-The CSV file will include the following columns:
+The CSV file follows the Koinly Universal Format and includes the following columns:
 
-- Transaction hash
-- From address
-- To address
-- Amount transferred
-- Token symbol (if applicable)
-- Gas fee
-- Transaction timestamp
-- Additional fields depending on transaction type
+| Column               | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| `Date`               | Unix timestamp of the transaction                                |
+| `Sent Amount`        | Amount sent (if outgoing transaction)                            |
+| `Sent Currency`      | Currency/token symbol for sent amount                            |
+| `Received Amount`    | Amount received (if incoming transaction)                        |
+| `Received Currency`  | Currency/token symbol for received amount                        |
+| `Fee Amount`         | Transaction fee (gas used × gas price)                           |
+| `Fee Currency`       | Currency for the fee (ETH)                                       |
+| `Net Worth Amount`   | Net worth amount (optional)                                      |
+| `Net Worth Currency` | Net worth currency (optional)                                    |
+| `Label`              | Transaction label (optional)                                     |
+| `Description`        | Transaction type: `transaction`, `internal`, or `token_transfer` |
+| `TxHash`             | Transaction hash                                                 |
 
 ## Troubleshooting
 
 - **Empty CSV file:** Ensure that the API response contains data for your wallet address. Check the logs for any error messages or missing data.
-- **API request issues:** If you receive timeouts or errors, consider adjusting the `TIMEOUT` value in the script or checking the status of the MintChain Explorer API.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **API request issues:** If you receive timeouts or errors, consider adjusting the `TIMEOUT` value in `config.py` or checking the status of the MintChain Explorer API.
+- **No wallet address:** If you see "No wallet address provided", ensure you've set `WALLET_ADDRESS` in your `.env` file or use the `--wallet` argument.
 
 ## Acknowledgments
 
