@@ -22,10 +22,6 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Constants
-DATE_FORMAT: str = '%Y-%m-%dT%H:%M:%S.%fZ'
-
-
 def combine_and_sort_transactions(
     transactions: List[Dict[str, Any]],
     token_transfers: List[Dict[str, Any]],
@@ -36,7 +32,7 @@ def combine_and_sort_transactions(
 
     # Convert the 'timestamp' field into a datetime object and sort by date
     all_transactions_sorted: List[Dict[str, Any]] = sorted(
-        all_transactions, key=lambda trx: datetime.strptime(trx['Date'], DATE_FORMAT)
+        all_transactions, key=lambda trx: int(trx.get('Date', 0))
     )
 
     return all_transactions_sorted
@@ -75,7 +71,7 @@ def process_transactions(
         start_date: datetime = datetime.strptime(start_date_str, '%Y-%m-%d')
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.strptime(trx['Date'], DATE_FORMAT) >= start_date
+            if datetime.fromtimestamp(int(trx.get('Date', 0))) >= start_date
         ]
     if end_date_str:
         end_date: datetime = datetime.strptime(end_date_str, '%Y-%m-%d').replace(
@@ -83,7 +79,7 @@ def process_transactions(
         )
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.strptime(trx['Date'], DATE_FORMAT) <= end_date
+            if datetime.fromtimestamp(int(trx.get('Date', 0))) <= end_date
         ]
 
     return all_sorted_transactions

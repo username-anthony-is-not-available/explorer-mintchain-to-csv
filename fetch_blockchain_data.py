@@ -8,62 +8,66 @@ from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 from config import BASE_URL, TIMEOUT
 
 
-# General function to fetch data from an API endpoint
 def fetch_data(endpoint: str) -> List[Dict[str, Any]]:
-    all_items: List[Dict[str, Any]] = []
-    current_url: Optional[str] = endpoint
-
-    parsed_endpoint = urlparse(endpoint)
-    base_endpoint: str = urlunparse(
-        (parsed_endpoint.scheme, parsed_endpoint.netloc, parsed_endpoint.path, '', '', '')
-    )
-    original_params: Dict[str, List[str]] = parse_qs(parsed_endpoint.query)
-
-    while current_url:
-        try:
-            response = requests.get(current_url, timeout=TIMEOUT)
-            if response.status_code == 200:
-                data: Dict[str, Any] = response.json()
-                items: List[Dict[str, Any]] = data.get('items', [])
-                all_items.extend(items)
-
-                next_page_params: Optional[Dict[str, Any]] = data.get('next_page_params')
-                if next_page_params:
-                    # Create a new dictionary for the next page's parameters
-                    query_params: Dict[str, Any] = {}
-                    # Add original parameters first
-                    query_params.update(original_params)
-                    # Now update with the next_page_params, which will overwrite
-                    # any pagination-related keys (like 'page' or 'offset')
-                    query_params.update(next_page_params)
-
-                    params: str = urlencode(query_params, doseq=True)
-                    current_url = f"{base_endpoint}?{params}"
-                else:
-                    current_url = None
+    try:
+        response = requests.get(endpoint, timeout=TIMEOUT)
+        if response.status_code == 200:
+            data = response.json()
+            # The API returns a dictionary with a 'result' key
+            # that contains the list of transactions.
+            if isinstance(data.get('result'), list):
+                return data['result']
             else:
-                logging.error(f"Error fetching data from {current_url}: {response.status_code} - {response.text}")
-                current_url = None
-        except RequestException as e:
-            logging.error(f"An error occurred while fetching data from {current_url}: {str(e)}")
-            current_url = None
-
-    return all_items
+                logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")
+                return []
+        else:
+            logging.error(f"Error fetching data from {endpoint}: {response.status_code} - {response.text}")
+            return []
+    except RequestException as e:
+        logging.error(f"An error occurred while fetching data from {endpoint}: {str(e)}")
+        return []
 
 
 # Function to fetch transactions
 def fetch_transactions(wallet_address: str) -> List[Dict[str, Any]]:
-    url: str = f'{BASE_URL}{wallet_address}/transactions'
+    params = {
+        'module': 'account',
+        'action': 'txlist',
+        'address': wallet_address,
+        'startblock': 0,
+        'endblock': 99999999,
+        'sort': 'asc',
+    }
+    encoded_params = urlencode(params)
+    url = f"{BASE_URL}?{encoded_params}"
     return fetch_data(url)
 
 
 # Function to fetch token transfers
 def fetch_token_transfers(wallet_address: str) -> List[Dict[str, Any]]:
-    url: str = f'{BASE_URL}{wallet_address}/token-transfers'
+    params = {
+        'module': 'account',
+        'action': 'tokentx',
+        'address': wallet_address,
+        'startblock': 0,
+        'endblock': 99999999,
+        'sort': 'asc',
+    }
+    encoded_params = urlencode(params)
+    url = f"{BASE_URL}?{encoded_params}"
     return fetch_data(url)
 
 
 # Function to fetch internal transactions
 def fetch_internal_transactions(wallet_address: str) -> List[Dict[str, Any]]:
-    url: str = f'{BASE_URL}{wallet_address}/internal-transactions'
+    params = {
+        'module': 'account',
+        'action': 'txlistinternal',
+        'address': wallet_address,
+        'startblock': 0,
+        'endblock': 99999999,
+        'sort': 'asc',
+    }
+    encoded_params = urlencode(params)
+    url = f"{BASE_URL}?{encoded_params}"
     return fetch_data(url)
