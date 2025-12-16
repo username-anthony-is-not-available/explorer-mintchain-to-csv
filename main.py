@@ -1,3 +1,4 @@
+import argparse
 import os
 from datetime import datetime
 
@@ -25,11 +26,14 @@ def combine_and_sort_transactions(transactions, token_transfers, internal_transa
 
 # Main function
 def main():
-    # Get the wallet address from environment variable
-    wallet_address = os.getenv('WALLET_ADDRESS')
-
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Fetch blockchain transaction data.')
+    parser.add_argument('--wallet', type=str, help='Wallet address to fetch transactions for.')
+    args = parser.parse_args()
+    # Get the wallet address from arguments or environment variable
+    wallet_address = args.wallet if args.wallet else os.getenv('WALLET_ADDRESS')
     if not wallet_address:
-        print("Error: WALLET_ADDRESS is not set in the .env file")
+        print("Error: No wallet address provided. Set it in the .env file or use the --wallet argument.")
         return
 
     # Fetch and combine transactions
