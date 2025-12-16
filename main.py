@@ -1,5 +1,7 @@
 import argparse
+import logging
 import os
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +18,9 @@ from fetch_blockchain_data import (
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Constants
 DATE_FORMAT: str = '%Y-%m-%dT%H:%M:%S.%fZ'
@@ -96,7 +101,7 @@ def main() -> None:
     # Get the wallet address from arguments or environment variable
     wallet_address = args.wallet if args.wallet else os.getenv('WALLET_ADDRESS')
     if not wallet_address:
-        print("Error: No wallet address provided. Set it in the .env file or use the --wallet argument.")
+        logging.error("No wallet address provided. Set it in the .env file or use the --wallet argument.")
         return
 
     # Process transactions
