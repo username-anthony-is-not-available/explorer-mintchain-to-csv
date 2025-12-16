@@ -1,9 +1,16 @@
-def extract_transaction_data(transaction_data, transaction_type, wallet_address):
-    extracted_data = []
+from typing import Any, Dict, List
+
+
+def extract_transaction_data(
+    transaction_data: List[Dict[str, Any]],
+    transaction_type: str,
+    wallet_address: str
+) -> List[Dict[str, Any]]:
+    extracted_data: List[Dict[str, Any]] = []
 
     for trx in transaction_data:
         # Base transaction fields
-        base_transaction = {}
+        base_transaction: Dict[str, Any] = {}
 
         # Handle regular transaction data
         if transaction_type in ['internal_transaction', 'transaction']:
