@@ -1,4 +1,5 @@
 
+import logging
 from typing import Any, Dict, List, Optional
 import requests
 from requests.exceptions import RequestException
@@ -41,10 +42,10 @@ def fetch_data(endpoint: str) -> List[Dict[str, Any]]:
                 else:
                     current_url = None
             else:
-                print(f"Error fetching data from {current_url}: {response.status_code} - {response.text}")
+                logging.error(f"Error fetching data from {current_url}: {response.status_code} - {response.text}")
                 current_url = None
         except RequestException as e:
-            print(f"An error occurred while fetching data from {current_url}: {str(e)}")
+            logging.error(f"An error occurred while fetching data from {current_url}: {str(e)}")
             current_url = None
 
     return all_items
