@@ -1,6 +1,7 @@
 import argparse
 import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
@@ -17,30 +18,48 @@ from fetch_blockchain_data import (
 load_dotenv()
 
 # Constants
-DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
+DATE_FORMAT: str = '%Y-%m-%dT%H:%M:%S.%fZ'
 
-def combine_and_sort_transactions(transactions, token_transfers, internal_transactions):
+
+def combine_and_sort_transactions(
+    transactions: List[Dict[str, Any]],
+    token_transfers: List[Dict[str, Any]],
+    internal_transactions: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     # Combine all transactions into one list
-    all_transactions = transactions + token_transfers + internal_transactions
+    all_transactions: List[Dict[str, Any]] = transactions + token_transfers + internal_transactions
 
     # Convert the 'timestamp' field into a datetime object and sort by date
-    all_transactions_sorted = sorted(all_transactions, key=lambda trx: datetime.strptime(trx['Date'], DATE_FORMAT))
+    all_transactions_sorted: List[Dict[str, Any]] = sorted(
+        all_transactions, key=lambda trx: datetime.strptime(trx['Date'], DATE_FORMAT)
+    )
 
     return all_transactions_sorted
 
-def process_transactions(wallet_address, start_date_str=None, end_date_str=None):
+
+def process_transactions(
+    wallet_address: str,
+    start_date_str: Optional[str] = None,
+    end_date_str: Optional[str] = None
+) -> List[Dict[str, Any]]:
     # Fetch and combine transactions
-    transactions = fetch_transactions(wallet_address)
-    token_transfers = fetch_token_transfers(wallet_address)
-    internal_transactions = fetch_internal_transactions(wallet_address)
+    transactions: List[Dict[str, Any]] = fetch_transactions(wallet_address)
+    token_transfers: List[Dict[str, Any]] = fetch_token_transfers(wallet_address)
+    internal_transactions: List[Dict[str, Any]] = fetch_internal_transactions(wallet_address)
 
     # Extract transaction data
-    extracted_regular_transactions = extract_transaction_data(transactions, 'transaction', wallet_address)
-    extracted_token_transfers = extract_transaction_data(token_transfers, 'token_transfers', wallet_address)
-    extracted_internal_transactions = extract_transaction_data(internal_transactions, 'internal_transaction', wallet_address)
+    extracted_regular_transactions: List[Dict[str, Any]] = extract_transaction_data(
+        transactions, 'transaction', wallet_address
+    )
+    extracted_token_transfers: List[Dict[str, Any]] = extract_transaction_data(
+        token_transfers, 'token_transfers', wallet_address
+    )
+    extracted_internal_transactions: List[Dict[str, Any]] = extract_transaction_data(
+        internal_transactions, 'internal_transaction', wallet_address
+    )
 
     # Combine and sort all transactions by date
-    all_sorted_transactions = combine_and_sort_transactions(
+    all_sorted_transactions: List[Dict[str, Any]] = combine_and_sort_transactions(
         extracted_regular_transactions,
         extracted_token_transfers,
         extracted_internal_transactions
@@ -48,13 +67,15 @@ def process_transactions(wallet_address, start_date_str=None, end_date_str=None)
 
     # Filter transactions by date range if provided
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        start_date: datetime = datetime.strptime(start_date_str, '%Y-%m-%d')
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
             if datetime.strptime(trx['Date'], DATE_FORMAT) >= start_date
         ]
     if end_date_str:
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        end_date: datetime = datetime.strptime(end_date_str, '%Y-%m-%d').replace(
+            hour=23, minute=59, second=59
+        )
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
             if datetime.strptime(trx['Date'], DATE_FORMAT) <= end_date
@@ -62,8 +83,9 @@ def process_transactions(wallet_address, start_date_str=None, end_date_str=None)
 
     return all_sorted_transactions
 
+
 # Main function
-def main():
+def main() -> None:
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Fetch blockchain transaction data.')
     parser.add_argument('--wallet', type=str, help='Wallet address to fetch transactions for.')

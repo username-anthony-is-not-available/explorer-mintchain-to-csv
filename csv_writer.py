@@ -1,11 +1,12 @@
 import csv
 import os
+from typing import Any, Dict, List
 
 
-def write_transaction_data_to_csv(output_file, transaction_data):
+def write_transaction_data_to_csv(output_file: str, transaction_data: List[Dict[str, Any]]) -> None:
     os.makedirs(os.path.dirname(output_file), exist_ok=True)  # Ensure the output directory exists
 
-    fieldnames = ['Date', 'Sent Amount', 'Sent Currency', 'Received Amount', 'Received Currency',
+    fieldnames: List[str] = ['Date', 'Sent Amount', 'Sent Currency', 'Received Amount', 'Received Currency',
                   'Fee Amount', 'Fee Currency', 'Net Worth Amount', 'Net Worth Currency',
                   'Label', 'Description', 'TxHash']
 
