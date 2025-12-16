@@ -5,6 +5,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from csv_writer import write_transaction_data_to_csv
+from json_writer import write_transaction_data_to_json
 from extract_transaction_data import extract_transaction_data
 from fetch_blockchain_data import (
     fetch_internal_transactions,
@@ -68,6 +69,7 @@ def main():
     parser.add_argument('--wallet', type=str, help='Wallet address to fetch transactions for.')
     parser.add_argument('--start-date', type=str, help='Start date in YYYY-MM-DD format.')
     parser.add_argument('--end-date', type=str, help='End date in YYYY-MM-DD format.')
+    parser.add_argument('--format', type=str, choices=['csv', 'json'], default='csv', help='Output format (csv or json).')
     args = parser.parse_args()
     # Get the wallet address from arguments or environment variable
     wallet_address = args.wallet if args.wallet else os.getenv('WALLET_ADDRESS')
@@ -77,12 +79,16 @@ def main():
 
     # Process transactions
     all_sorted_transactions = process_transactions(wallet_address, args.start_date, args.end_date)
-    # Define the output path for CSV
-    output_file = 'output/blockchain_transactions.csv'
+    # Define the output path based on the format
+    output_file = f'output/blockchain_transactions.{args.format}'
 
-    # Write the data to CSV
-    write_transaction_data_to_csv(output_file, all_sorted_transactions)
-    print(f"CSV file has been written to {output_file}")
+    # Write the data to the selected format
+    if args.format == 'csv':
+        write_transaction_data_to_csv(output_file, all_sorted_transactions)
+        print(f"CSV file has been written to {output_file}")
+    elif args.format == 'json':
+        write_transaction_data_to_json(output_file, all_sorted_transactions)
+        print(f"JSON file has been written to {output_file}")
 
 if __name__ == "__main__":
     main()
