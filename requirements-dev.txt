@@ -1,4 +1,4 @@
-flake8
-pytest
-mypy
-pytest-cov
+flake8==7.3.0
+pytest==9.0.2
+mypy==1.19.1
+pytest-cov==7.0.0
