@@ -7,22 +7,23 @@ from fetch_blockchain_data import fetch_data
 WALLET_ADDRESS = "test_wallet"
 
 MOCK_TRANSACTION = {
-    "timestamp": "2023-01-15T12:00:00.000Z",
+    "timeStamp": "1673784000",
     "value": "1",
-    "fee": "0.01",
-    "tx_hash": "0x123",
-    "from": {"hash": WALLET_ADDRESS},
-    "to": {"hash": "recipient"},
+    "gasUsed": "21000",
+    "gasPrice": "1000000000",
+    "hash": "0x123",
+    "from": WALLET_ADDRESS,
+    "to": "recipient",
     "type": "transaction"
 }
 
 MOCK_TOKEN_TRANSFER = {
-    "timestamp": "2023-02-20T12:00:00.000Z",
-    "total": {"value": "10"},
-    "token": {"symbol": "TOK"},
-    "tx_hash": "0x456",
-    "from": {"hash": "sender"},
-    "to": {"hash": WALLET_ADDRESS},
+    "timeStamp": "1676894400",
+    "value": "10",
+    "tokenSymbol": "TOK",
+    "hash": "0x456",
+    "from": "sender",
+    "to": WALLET_ADDRESS,
     "type": "token_transfer"
 }
 
@@ -34,7 +35,7 @@ def test_extract_transaction_data_sent():
     assert trx["Sent Amount"] == "1"
     assert trx["Sent Currency"] == "ETH"
     assert trx["Received Amount"] == ""
-    assert trx["Fee Amount"] == "0.01"
+    assert trx["Fee Amount"] == "21000000000000"
 
 def test_extract_token_transfer_received():
     """Tests that received token transfers are correctly processed."""
@@ -52,11 +53,11 @@ def test_pagination_logic(mock_get):
     # Mock the first page of the API response
     mock_get.side_effect = [
         MagicMock(status_code=200, json=lambda: {
-            "items": [{"id": 1}],
+            "result": [{"id": 1}],
             "next_page_params": {"page": 2}
         }),
         MagicMock(status_code=200, json=lambda: {
-            "items": [{"id": 2}],
+            "result": [{"id": 2}],
             "next_page_params": None
         })
     ]
