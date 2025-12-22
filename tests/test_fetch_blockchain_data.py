@@ -1,66 +1,64 @@
 from unittest.mock import patch, MagicMock
 from requests.exceptions import RequestException
+import pytest
 
-from fetch_blockchain_data import fetch_data, fetch_transactions, fetch_token_transfers, fetch_internal_transactions
-
+from fetch_blockchain_data import fetch_data
+from models import RawTransaction
 
 @patch('fetch_blockchain_data.requests.get')
 def test_fetch_data_success(mock_get):
+    """Tests fetch_data with a successful API response."""
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {'result': [{'tx': '1'}]}
+    mock_response.json.return_value = {
+        "result": [
+            {
+                "hash": "0xabc",
+                "timeStamp": "1234567890",
+                "from": {"hash": "0xfrom"},
+                "to": {"hash": "0xto"},
+                "value": "1000",
+                "gasUsed": "21000",
+                "gasPrice": "50"
+            }
+        ]
+    }
     mock_get.return_value = mock_response
 
-    result = fetch_data('http://test.com')
-    assert result == [{'tx': '1'}]
+    result = fetch_data("http://test.com/api", RawTransaction)
+    assert len(result) == 1
+    assert isinstance(result[0], RawTransaction)
+    assert result[0].hash == "0xabc"
 
 
 @patch('fetch_blockchain_data.requests.get')
-def test_fetch_data_non_200_status(mock_get):
+def test_fetch_data_api_error(mock_get):
+    """Tests fetch_data with an API error response."""
     mock_response = MagicMock()
-    mock_response.status_code = 404
+    mock_response.status_code = 500
+    mock_response.raise_for_status.side_effect = RequestException
     mock_get.return_value = mock_response
 
-    result = fetch_data('http://test.com')
+    result = fetch_data("http://test.com/api", RawTransaction)
     assert result == []
 
 
 @patch('fetch_blockchain_data.requests.get')
-def test_fetch_data_invalid_json(mock_get):
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {'data': 'no result key'}
-    mock_get.return_value = mock_response
-
-    result = fetch_data('http://test.com')
-    assert result == []
-
-
-@patch('fetch_blockchain_data.requests.get', side_effect=RequestException('Request failed'))
 def test_fetch_data_request_exception(mock_get):
-    result = fetch_data('http://test.com')
+    """Tests fetch_data with a request exception."""
+    mock_get.side_effect = RequestException("Test error")
+
+    result = fetch_data("http://test.com/api", RawTransaction)
     assert result == []
 
 
-@patch('fetch_blockchain_data.fetch_data')
-def test_fetch_transactions(mock_fetch_data):
-    mock_fetch_data.return_value = [{'tx': '1'}]
-    result = fetch_transactions('0x123')
-    assert result == [{'tx': '1'}]
-    mock_fetch_data.assert_called_once()
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_no_result_list(mock_get):
+    """Tests fetch_data with a response that does not contain a list in 'result'."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"result": "not a list"}
+    mock_get.return_value = mock_response
 
-
-@patch('fetch_blockchain_data.fetch_data')
-def test_fetch_token_transfers(mock_fetch_data):
-    mock_fetch_data.return_value = [{'tx': '2'}]
-    result = fetch_token_transfers('0x123')
-    assert result == [{'tx': '2'}]
-    mock_fetch_data.assert_called_once()
-
-
-@patch('fetch_blockchain_data.fetch_data')
-def test_fetch_internal_transactions(mock_fetch_data):
-    mock_fetch_data.return_value = [{'tx': '3'}]
-    result = fetch_internal_transactions('0x123')
-    assert result == [{'tx': '3'}]
-    mock_fetch_data.assert_called_once()
+    result = fetch_data("http://test.com/api", RawTransaction)
+    assert result == []
