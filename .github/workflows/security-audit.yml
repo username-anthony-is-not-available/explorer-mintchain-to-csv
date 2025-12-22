@@ -1,0 +1,25 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    - name: Install pip-audit
+      run: pip install pip-audit
+    - name: Audit requirements.txt
+      run: pip-audit -r requirements.txt
+    - name: Audit requirements-dev.txt
+      run: pip-audit -r requirements-dev.txt
