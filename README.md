@@ -35,19 +35,11 @@ A tool designed to streamline the process of exporting blockchain transaction da
    cd explorer-mintchain-to-csv
    ```
 
-3. Install the necessary Python dependencies:
+3. Install the necessary Python dependencies for both running the application and development:
 
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt -r requirements-dev.txt
    ```
-
-## Development
-
-To install the development dependencies, run:
-
-```bash
-pip install -r requirements-dev.txt
-```
 
 ## Testing
 
