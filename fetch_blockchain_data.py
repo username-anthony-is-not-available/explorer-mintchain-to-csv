@@ -1,35 +1,46 @@
-
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Type, TypeVar
 import requests
+from pydantic import ValidationError, BaseModel
 from requests.exceptions import RequestException
-from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
+from urllib.parse import urlencode
 
 from config import BASE_URL, TIMEOUT
+from models import RawTokenTransfer, RawTransaction
 
+T = TypeVar('T', bound=BaseModel)
 
-def fetch_data(endpoint: str) -> List[Dict[str, Any]]:
+def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
     try:
         response = requests.get(endpoint, timeout=TIMEOUT)
-        if response.status_code == 200:
-            data = response.json()
-            # The API returns a dictionary with a 'result' key
-            # that contains the list of transactions.
-            if isinstance(data.get('result'), list):
-                return data['result']
-            else:
-                logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")
-                return []
-        else:
-            logging.error(f"Error fetching data from {endpoint}: {response.status_code} - {response.text}")
+        response.raise_for_status()
+        data = response.json()
+
+        result_list = data.get('result')
+        if not isinstance(result_list, list):
+            logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")
             return []
+
+        validated_data: List[T] = []
+        for item in result_list:
+            try:
+                validated_item = model.model_validate(item)
+                validated_data.append(validated_item)
+            except ValidationError as e:
+                logging.warning(f"Validation error for item in {endpoint}: {e}. Item: {item}")
+
+        return validated_data
+
     except RequestException as e:
         logging.error(f"An error occurred while fetching data from {endpoint}: {str(e)}")
+        return []
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {str(e)}")
         return []
 
 
 # Function to fetch transactions
-def fetch_transactions(wallet_address: str) -> List[Dict[str, Any]]:
+def fetch_transactions(wallet_address: str) -> List[RawTransaction]:
     params = {
         'module': 'account',
         'action': 'txlist',
@@ -40,11 +51,11 @@ def fetch_transactions(wallet_address: str) -> List[Dict[str, Any]]:
     }
     encoded_params = urlencode(params)
     url = f"{BASE_URL}?{encoded_params}"
-    return fetch_data(url)
+    return fetch_data(url, RawTransaction)
 
 
 # Function to fetch token transfers
-def fetch_token_transfers(wallet_address: str) -> List[Dict[str, Any]]:
+def fetch_token_transfers(wallet_address: str) -> List[RawTokenTransfer]:
     params = {
         'module': 'account',
         'action': 'tokentx',
@@ -55,11 +66,11 @@ def fetch_token_transfers(wallet_address: str) -> List[Dict[str, Any]]:
     }
     encoded_params = urlencode(params)
     url = f"{BASE_URL}?{encoded_params}"
-    return fetch_data(url)
+    return fetch_data(url, RawTokenTransfer)
 
 
 # Function to fetch internal transactions
-def fetch_internal_transactions(wallet_address: str) -> List[Dict[str, Any]]:
+def fetch_internal_transactions(wallet_address: str) -> List[RawTransaction]:
     params = {
         'module': 'account',
         'action': 'txlistinternal',
@@ -70,4 +81,4 @@ def fetch_internal_transactions(wallet_address: str) -> List[Dict[str, Any]]:
     }
     encoded_params = urlencode(params)
     url = f"{BASE_URL}?{encoded_params}"
-    return fetch_data(url)
+    return fetch_data(url, RawTransaction)

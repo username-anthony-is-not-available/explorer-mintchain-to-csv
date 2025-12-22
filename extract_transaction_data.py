@@ -1,60 +1,54 @@
-from typing import Any, Dict, List
+from typing import Sequence, Union
+from models import RawTokenTransfer, RawTransaction, Transaction
 
+AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
 
 def extract_transaction_data(
-    transaction_data: List[Dict[str, Any]],
+    transaction_data: Sequence[AnyRawTransaction],
     transaction_type: str,
     wallet_address: str
-) -> List[Dict[str, Any]]:
-    extracted_data: List[Dict[str, Any]] = []
+) -> list[Transaction]:
+    extracted_data: list[Transaction] = []
 
     for trx in transaction_data:
-        # Base transaction fields
-        base_transaction: Dict[str, Any] = {}
+        is_sender = trx.from_address.hash.lower() == wallet_address.lower()
+        is_receiver = trx.to_address.hash.lower() == wallet_address.lower()
 
-        sender_address = trx.get('from', {}).get('hash', '')
-        receiver_address = trx.get('to', {}).get('hash', '')
+        data = {
+            'Date': trx.timeStamp,
+            'TxHash': trx.hash,
+            'Description': '',
+            'Sent Amount': None,
+            'Sent Currency': None,
+            'Received Amount': None,
+            'Received Currency': None,
+            'Fee Amount': None,
+            'Fee Currency': None,
+            'Net Worth Amount': '',
+            'Net Worth Currency': '',
+            'Label': '',
+        }
 
-        # Handle regular transaction data
-        if transaction_type in ['internal_transaction', 'transaction']:
-            is_sender = sender_address == wallet_address
-            is_receiver = receiver_address == wallet_address
+        if isinstance(trx, RawTransaction):
+            data['Description'] = 'internal' if transaction_type == 'internal_transaction' else 'transaction'
+            if is_sender:
+                data['Sent Amount'] = trx.value
+                data['Sent Currency'] = 'ETH'
+                data['Fee Amount'] = f"{(int(trx.gasUsed) * int(trx.gasPrice)) / 1e18:.6f}"
+                data['Fee Currency'] = 'ETH'
+            if is_receiver:
+                data['Received Amount'] = trx.value
+                data['Received Currency'] = 'ETH'
 
-            base_transaction.update({
-                'Date': trx.get('timeStamp', ''),
-                'Sent Amount': trx.get('value', '') if is_sender else '',
-                'Sent Currency': 'ETH' if is_sender else '',
-                'Received Amount': trx.get('value', '') if is_receiver else '',
-                'Received Currency': 'ETH' if is_receiver else '',
-                'Fee Amount': f"{(int(trx.get('gasUsed', '0')) * int(trx.get('gasPrice', '0'))) / 1e18:.6f}" if is_sender else '',
-                'Fee Currency': 'ETH' if is_sender else '',
-                'Net Worth Amount': '',
-                'Net Worth Currency': '',
-                'Label': '',
-                'Description': 'internal' if transaction_type == 'internal_transaction' else 'transaction',
-                'TxHash': trx.get('hash', '')
-            })
+        elif isinstance(trx, RawTokenTransfer):
+            data['Description'] = 'token_transfer'
+            if is_sender:
+                data['Sent Amount'] = trx.total.value
+                data['Sent Currency'] = trx.token.symbol
+            if is_receiver:
+                data['Received Amount'] = trx.total.value
+                data['Received Currency'] = trx.token.symbol
 
-        # Handle token transfer details
-        if transaction_type in ['token_transfers']:
-            is_sender = sender_address == wallet_address
-            is_receiver = receiver_address == wallet_address
-
-            base_transaction.update({
-                'Date': trx.get('timeStamp', ''),
-                'Sent Amount': trx.get('total', {}).get('value', '') if is_sender else '',
-                'Sent Currency': trx.get('token', {}).get('symbol', '') if is_sender else '',
-                'Received Amount': trx.get('total', {}).get('value', '') if is_receiver else '',
-                'Received Currency': trx.get('token', {}).get('symbol', '') if is_receiver else '',
-                'Fee Amount': '',
-                'Fee Currency': '',
-                'Net Worth Amount': '',
-                'Net Worth Currency': '',
-                'Label': '',
-                'Description': 'token_transfer',
-                'TxHash': trx.get('hash', '')
-            })
-
-        extracted_data.append(base_transaction)
+        extracted_data.append(Transaction.model_validate(data))
 
     return extracted_data
