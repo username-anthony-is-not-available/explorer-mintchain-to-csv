@@ -3,3 +3,4 @@ pytest==9.0.2
 mypy==1.19.1
 pytest-cov==7.0.0
 types-requests==2.31.0.20240106
+responses==0.25.8
