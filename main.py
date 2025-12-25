@@ -18,6 +18,7 @@ from fetch_blockchain_data import (
     fetch_transactions,
 )
 from json_writer import write_transaction_data_to_json
+from koinly_writer import write_transaction_data_to_koinly_csv
 from models import Transaction
 from config import EXPLORER_URLS
 
@@ -188,7 +189,7 @@ def main() -> None:
     parser.add_argument('--address-file', type=str, help='File containing a list of wallet addresses.')
     parser.add_argument('--start-date', type=str, help='Start date in YYYY-MM-DD format.')
     parser.add_argument('--end-date', type=str, help='End date in YYYY-MM-DD format.')
-    parser.add_argument('--format', type=str, choices=['csv', 'json'], default='csv', help='Output format (csv or json).')
+    parser.add_argument('--format', type=str, choices=['csv', 'json', 'koinly'], default='csv', help='Output format (csv, json, or koinly).')
     parser.add_argument('--chain', type=str, choices=list(EXPLORER_URLS.keys()), default='mintchain', help='Blockchain explorer to use.')
 
     try:
@@ -235,6 +236,10 @@ def main() -> None:
     elif validated_args.format == 'json':
         write_transaction_data_to_json(output_file, output_data)
         print(f"JSON file has been written to {output_file}")
+    elif validated_args.format == 'koinly':
+        output_file = f'output/blockchain_transactions.{validated_args.format}'
+        write_transaction_data_to_koinly_csv(output_file, output_data)
+        print(f"Koinly CSV file has been written to {output_file}")
 
 if __name__ == "__main__":
     main()

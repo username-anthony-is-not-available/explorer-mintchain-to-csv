@@ -21,6 +21,7 @@ MOCK_TOKEN_TRANSFER = RawTokenTransfer.model_validate({
     "hash": "0x456",
     "from": {"hash": "sender"},
     "to": {"hash": WALLET_ADDRESS},
+    "tokenDecimal": "18",
 })
 
 def test_extract_transaction_data_sent():

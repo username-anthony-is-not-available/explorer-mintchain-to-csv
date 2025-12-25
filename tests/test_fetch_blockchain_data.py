@@ -80,7 +80,8 @@ def test_fetch_token_transfers_success(mocked_responses):
             "to": {"hash": "0x456"},
             "timeStamp": "1672531201",
             "total": {"value": "200"},
-            "token": {"symbol": "TKN"}
+            "token": {"symbol": "TKN"},
+            "tokenDecimal": "18"
         }]},
         status=200,
     )

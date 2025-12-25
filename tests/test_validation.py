@@ -35,7 +35,8 @@ def test_raw_token_transfer_model():
         "from": {"hash": "0xfrom"},
         "to": {"hash": "0xto"},
         "total": {"value": "500"},
-        "token": {"symbol": "TOK"}
+        "token": {"symbol": "TOK"},
+        "tokenDecimal": "18"
     }
     trx = RawTokenTransfer.model_validate(data)
     assert trx.hash == "0xdef"
