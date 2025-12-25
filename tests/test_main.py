@@ -21,7 +21,7 @@ def mock_fetch_data():
         mock_fetch_token.return_value = [
             RawTokenTransfer.model_validate({
                 'timeStamp': '1676894400', 'total': {'value': '10'}, 'token': {'symbol': 'TOK'},
-                'from': {'hash': 'sender'}, 'to': {'hash': 'test_wallet'}, 'hash': '0x2'
+                'from': {'hash': 'sender'}, 'to': {'hash': 'test_wallet'}, 'hash': '0x2', 'tokenDecimal': '18'
             })
         ]
         mock_fetch_internal.return_value = [

@@ -26,6 +26,7 @@ class RawTokenTransfer(BaseModel):
     to_address: Address = Field(..., alias='to')
     total: Total
     token: Token
+    tokenDecimal: str
 
 class Transaction(BaseModel):
     date: str = Field(..., alias='Date')

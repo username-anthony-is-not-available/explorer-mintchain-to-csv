@@ -1,5 +1,6 @@
 from typing import Sequence, Union
 from models import RawTokenTransfer, RawTransaction, Transaction
+from transaction_categorization import categorize_transaction
 
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
 
@@ -26,7 +27,7 @@ def extract_transaction_data(
             'Fee Currency': None,
             'Net Worth Amount': '',
             'Net Worth Currency': '',
-            'Label': '',
+            'Label': categorize_transaction(trx),
         }
 
         if isinstance(trx, RawTransaction):
