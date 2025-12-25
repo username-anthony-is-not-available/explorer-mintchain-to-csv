@@ -4,3 +4,4 @@ mypy==1.19.1
 pytest-cov==7.0.0
 types-requests==2.31.0.20240106
 responses==0.25.8
+tenacity==9.1.2
