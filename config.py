@@ -1,5 +1,10 @@
-# MintChain API URLs for fetching transactions, token transfers, and internal transactions
-BASE_URL: str = 'https://api.routescan.io/v2/network/mainnet/evm/185/etherscan'
+# Explorer base URLs
+EXPLORER_URLS = {
+    'mintchain': 'https://api.routescan.io/v2/network/mainnet/evm/185/etherscan',
+    'etherscan': 'https://api.etherscan.io/api',
+    'basescan': 'https://api.basescan.org/api',
+    'arbiscan': 'https://api.arbiscan.io/api',
+}
 
 # Timeout value (in seconds)
 TIMEOUT: int = 10
