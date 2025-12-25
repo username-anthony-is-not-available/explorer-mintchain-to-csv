@@ -4,6 +4,8 @@ from models import RawTransaction, RawTokenTransfer, Transaction
 import pytest
 from pydantic import ValidationError
 
+CHAIN = "mintchain"
+
 @pytest.fixture
 def mock_fetch_data():
     with patch('main.fetch_transactions') as mock_fetch_regular, \
@@ -32,21 +34,21 @@ def mock_fetch_data():
 
 def test_date_range_filtering(mock_fetch_data):
     # Test with no date range
-    transactions = process_transactions('test_wallet')
+    transactions = process_transactions('test_wallet', CHAIN)
     assert len(transactions) == 3
 
     # Test with a start date
-    transactions = process_transactions('test_wallet', start_date_str='2023-02-01')
+    transactions = process_transactions('test_wallet', CHAIN, start_date_str='2023-02-01')
     assert len(transactions) == 2
     assert transactions[0].date == '1676894400'
 
     # Test with an end date
-    transactions = process_transactions('test_wallet', end_date_str='2023-02-28')
+    transactions = process_transactions('test_wallet', CHAIN, end_date_str='2023-02-28')
     assert len(transactions) == 2
     assert transactions[1].date == '1676894400'
 
     # Test with both a start and end date
-    transactions = process_transactions('test_wallet', start_date_str='2023-01-01', end_date_str='2023-01-31')
+    transactions = process_transactions('test_wallet', CHAIN, start_date_str='2023-01-01', end_date_str='2023-01-31')
     assert len(transactions) == 1
     assert transactions[0].date == '1673784000'
 
@@ -55,7 +57,7 @@ def test_date_range_filtering(mock_fetch_data):
 @patch('main.fetch_token_transfers', return_value=[])
 @patch('main.fetch_internal_transactions', return_value=[])
 def test_process_transactions_no_data(mock_fetch_internal, mock_fetch_token, mock_fetch_regular):
-    transactions = process_transactions('test_wallet')
+    transactions = process_transactions('test_wallet', CHAIN)
     assert len(transactions) == 0
 
 @patch('main.argparse.ArgumentParser')
@@ -68,13 +70,15 @@ def test_main_csv_output_with_wallet_arg(mock_getenv, mock_write_csv, mock_proce
     mock_args.start_date = None
     mock_args.end_date = None
     mock_args.format = 'csv'
+    mock_args.chain = CHAIN
+    mock_args.address_file = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [Transaction.model_validate({'Date': '1', 'Description': 'test', 'TxHash': '0x1'})]
 
     main()
 
-    mock_process.assert_called_with('0x123', None, None)
+    mock_process.assert_called_with('0x123', CHAIN, None, None)
     mock_write_csv.assert_called_with('output/blockchain_transactions.csv', [{'Date': '1', 'Sent Amount': None, 'Sent Currency': None, 'Received Amount': None, 'Received Currency': None, 'Fee Amount': None, 'Fee Currency': None, 'Net Worth Amount': None, 'Net Worth Currency': None, 'Label': None, 'Description': 'test', 'TxHash': '0x1'}])
     mock_getenv.assert_not_called()
 
@@ -92,9 +96,10 @@ def test_args_validation():
         Args.model_validate({'wallet': '0x123', 'address_file': 'addresses.txt', 'format': 'csv'})
 
     # Test for valid arguments
-    args = Args.model_validate({'wallet': '0x123', 'start_date': '2023-01-01', 'format': 'csv'})
+    args = Args.model_validate({'wallet': '0x123', 'start_date': '2023-01-01', 'format': 'csv', 'chain': 'etherscan'})
     assert args.wallet == '0x123'
     assert args.start_date == '2023-01-01'
+    assert args.chain == 'etherscan'
 
     # Test with address_file
     args = Args.model_validate({'address_file': 'addresses.txt', 'format': 'csv'})
@@ -114,7 +119,7 @@ def test_process_batch_transactions(mock_process_transactions):
     ]
 
     with patch('builtins.open', mock_open_context):
-        result = process_batch_transactions('dummy_path.txt')
+        result = process_batch_transactions('dummy_path.txt', CHAIN)
 
     # Verify the results
     assert len(result) == 2
@@ -123,5 +128,5 @@ def test_process_batch_transactions(mock_process_transactions):
 
     # Verify that process_transactions was called for each address
     assert mock_process_transactions.call_count == 2
-    mock_process_transactions.assert_any_call('0xaddress1', None, None)
-    mock_process_transactions.assert_any_call('0xaddress2', None, None)
+    mock_process_transactions.assert_any_call('0xaddress1', CHAIN, None, None)
+    mock_process_transactions.assert_any_call('0xaddress2', CHAIN, None, None)
