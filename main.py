@@ -10,6 +10,8 @@ from typing import List, Optional
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 
+from cointracker_writer import write_transaction_data_to_cointracker_csv
+from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalculator_csv
 from csv_writer import write_transaction_data_to_csv
 from extract_transaction_data import extract_transaction_data
 from fetch_blockchain_data import (
@@ -189,7 +191,13 @@ def main() -> None:
     parser.add_argument('--address-file', type=str, help='File containing a list of wallet addresses.')
     parser.add_argument('--start-date', type=str, help='Start date in YYYY-MM-DD format.')
     parser.add_argument('--end-date', type=str, help='End date in YYYY-MM-DD format.')
-    parser.add_argument('--format', type=str, choices=['csv', 'json', 'koinly'], default='csv', help='Output format (csv, json, or koinly).')
+    parser.add_argument(
+        '--format',
+        type=str,
+        choices=['csv', 'json', 'cointracker', 'cryptotaxcalculator', 'koinly'],
+        default='csv',
+        help='Output format (csv, json, cointracker, cryptotaxcalculator, or koinly).'
+    )
     parser.add_argument('--chain', type=str, choices=list(EXPLORER_URLS.keys()), default='mintchain', help='Blockchain explorer to use.')
 
     try:
@@ -236,8 +244,13 @@ def main() -> None:
     elif validated_args.format == 'json':
         write_transaction_data_to_json(output_file, output_data)
         print(f"JSON file has been written to {output_file}")
+    elif validated_args.format == 'cointracker':
+        write_transaction_data_to_cointracker_csv(output_file, output_data)
+        print(f"CoinTracker CSV file has been written to {output_file}")
+    elif validated_args.format == 'cryptotaxcalculator':
+        write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
+        print(f"CryptoTaxCalculator CSV file has been written to {output_file}")
     elif validated_args.format == 'koinly':
-        output_file = f'output/blockchain_transactions.{validated_args.format}'
         write_transaction_data_to_koinly_csv(output_file, output_data)
         print(f"Koinly CSV file has been written to {output_file}")
 
