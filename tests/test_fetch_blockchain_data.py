@@ -5,10 +5,11 @@ import logging
 from requests.exceptions import RequestException, HTTPError
 
 from fetch_blockchain_data import fetch_data, fetch_transactions, fetch_token_transfers, fetch_internal_transactions
-from config import BASE_URL
+from config import EXPLORER_URLS
 from models import RawTransaction
 
 WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
+CHAIN = "mintchain"
 
 @pytest.fixture
 def mocked_responses():
@@ -16,7 +17,8 @@ def mocked_responses():
         yield rsps
 
 def test_fetch_transactions_success(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -31,40 +33,44 @@ def test_fetch_transactions_success(mocked_responses):
         }]},
         status=200,
     )
-    transactions = fetch_transactions(WALLET_ADDRESS)
+    transactions = fetch_transactions(WALLET_ADDRESS, CHAIN)
     assert len(transactions) == 1
     assert transactions[0].hash == "0xabc"
 
 def test_fetch_transactions_failure(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(responses.GET, mock_url, status=500)
-    transactions = fetch_transactions(WALLET_ADDRESS)
+    transactions = fetch_transactions(WALLET_ADDRESS, CHAIN)
     assert len(transactions) == 0
 
 def test_fetch_transactions_validation_error(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(
         responses.GET,
         mock_url,
         json={"result": [{"hash": "0xabc"}]},  # Missing required fields
         status=200,
     )
-    transactions = fetch_transactions(WALLET_ADDRESS)
+    transactions = fetch_transactions(WALLET_ADDRESS, CHAIN)
     assert len(transactions) == 0
 
 def test_fetch_transactions_malformed_response(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(
         responses.GET,
         mock_url,
         json={"data": "not a result list"}, # Malformed response
         status=200,
     )
-    transactions = fetch_transactions(WALLET_ADDRESS)
+    transactions = fetch_transactions(WALLET_ADDRESS, CHAIN)
     assert len(transactions) == 0
 
 def test_fetch_token_transfers_success(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=tokentx&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=tokentx&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -74,16 +80,18 @@ def test_fetch_token_transfers_success(mocked_responses):
             "to": {"hash": "0x456"},
             "timeStamp": "1672531201",
             "total": {"value": "200"},
-            "token": {"symbol": "TKN"}
+            "token": {"symbol": "TKN"},
+            "tokenDecimal": "18"
         }]},
         status=200,
     )
-    transfers = fetch_token_transfers(WALLET_ADDRESS)
+    transfers = fetch_token_transfers(WALLET_ADDRESS, CHAIN)
     assert len(transfers) == 1
     assert transfers[0].hash == "0xdef"
 
 def test_fetch_internal_transactions_success(mocked_responses):
-    mock_url = f"{BASE_URL}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -98,7 +106,7 @@ def test_fetch_internal_transactions_success(mocked_responses):
         }]},
         status=200,
     )
-    transactions = fetch_internal_transactions(WALLET_ADDRESS)
+    transactions = fetch_internal_transactions(WALLET_ADDRESS, CHAIN)
     assert len(transactions) == 1
     assert transactions[0].hash == "0xghi"
 
@@ -106,8 +114,8 @@ def test_fetch_internal_transactions_success(mocked_responses):
 def test_fetch_data_retry_logic(mock_get, caplog):
     # Configure the mock to raise a RequestException 5 times
     mock_get.side_effect = RequestException("Test Exception")
-
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
 
     with caplog.at_level(logging.ERROR):
         result = fetch_data(mock_url, RawTransaction)
@@ -125,7 +133,8 @@ def test_fetch_data_retry_logic(mock_get, caplog):
 @responses.activate
 def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
     # Configure the mock to return a 429 error with a Retry-After header
-    mock_url = f"{BASE_URL}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
 
     # Mock the first 4 calls to fail with a 429, and the 5th to also fail
     for _ in range(5):
@@ -153,3 +162,7 @@ def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
 
     # Check that the result is an empty list
     assert result == []
+
+def test_fetch_transactions_unsupported_chain():
+    with pytest.raises(ValueError, match="Unsupported chain: invalidchain"):
+        fetch_transactions(WALLET_ADDRESS, "invalidchain")

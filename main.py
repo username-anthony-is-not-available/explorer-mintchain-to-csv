@@ -20,7 +20,9 @@ from fetch_blockchain_data import (
     fetch_transactions,
 )
 from json_writer import write_transaction_data_to_json
+from koinly_writer import write_transaction_data_to_koinly_csv
 from models import Transaction
+from config import EXPLORER_URLS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -34,6 +36,7 @@ class Args(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     format: str
+    chain: str = 'mintchain'
 
     @model_validator(mode='before')
     def validate_wallet_or_address_file(cls, values):
@@ -80,13 +83,14 @@ def combine_and_sort_transactions(
 
 def process_transactions(
     wallet_address: str,
+    chain: str,
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None
 ) -> List[Transaction]:
     # Fetch and combine transactions
-    transactions = fetch_transactions(wallet_address)
-    token_transfers = fetch_token_transfers(wallet_address)
-    internal_transactions = fetch_internal_transactions(wallet_address)
+    transactions = fetch_transactions(wallet_address, chain)
+    token_transfers = fetch_token_transfers(wallet_address, chain)
+    internal_transactions = fetch_internal_transactions(wallet_address, chain)
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
@@ -127,6 +131,7 @@ def process_transactions(
 
 def process_batch_transactions(
     address_file: str,
+    chain: str,
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None,
 ) -> List[Transaction]:
@@ -146,6 +151,7 @@ def process_batch_transactions(
             executor.submit(
                 process_transactions,
                 wallet_address,
+                chain,
                 start_date_str,
                 end_date_str
             ): wallet_address
@@ -188,10 +194,11 @@ def main() -> None:
     parser.add_argument(
         '--format',
         type=str,
-        choices=['csv', 'json', 'cointracker', 'cryptotaxcalculator'],
+        choices=['csv', 'json', 'cointracker', 'cryptotaxcalculator', 'koinly'],
         default='csv',
-        help='Output format (csv, json, cointracker, or cryptotaxcalculator).'
+        help='Output format (csv, json, cointracker, cryptotaxcalculator, or koinly).'
     )
+    parser.add_argument('--chain', type=str, choices=list(EXPLORER_URLS.keys()), default='mintchain', help='Blockchain explorer to use.')
 
     try:
         args = parser.parse_args()
@@ -204,6 +211,7 @@ def main() -> None:
     if validated_args.address_file:
         all_sorted_transactions = process_batch_transactions(
             validated_args.address_file,
+            validated_args.chain,
             validated_args.start_date,
             validated_args.end_date,
         )
@@ -217,7 +225,10 @@ def main() -> None:
             return
 
         all_sorted_transactions = process_transactions(
-            wallet_address, validated_args.start_date, validated_args.end_date
+            wallet_address,
+            validated_args.chain,
+            validated_args.start_date,
+            validated_args.end_date
         )
 
     # Convert Pydantic models to dictionaries for writers
@@ -239,6 +250,9 @@ def main() -> None:
     elif validated_args.format == 'cryptotaxcalculator':
         write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
         print(f"CryptoTaxCalculator CSV file has been written to {output_file}")
+    elif validated_args.format == 'koinly':
+        write_transaction_data_to_koinly_csv(output_file, output_data)
+        print(f"Koinly CSV file has been written to {output_file}")
 
 if __name__ == "__main__":
     main()

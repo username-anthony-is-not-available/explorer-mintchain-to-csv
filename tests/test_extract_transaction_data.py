@@ -49,7 +49,8 @@ def test_extract_transaction_data_token_transfer_sent():
         "to": {"hash": "0x456"},
         "timeStamp": "1672531201",
         "total": {"value": "200"},
-        "token": {"symbol": "TKN"}
+        "token": {"symbol": "TKN"},
+        "tokenDecimal": "18"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS)
@@ -67,7 +68,8 @@ def test_extract_transaction_data_token_transfer_received():
         "to": {"hash": WALLET_ADDRESS},
         "timeStamp": "1672531201",
         "total": {"value": "200"},
-        "token": {"symbol": "TKN"}
+        "token": {"symbol": "TKN"},
+        "tokenDecimal": "18"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS)
