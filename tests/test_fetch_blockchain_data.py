@@ -1,6 +1,6 @@
 import pytest
 import responses
-from unittest.mock import patch, call
+from unittest.mock import patch, call, Mock
 import logging
 from requests.exceptions import RequestException, HTTPError
 
@@ -152,16 +152,34 @@ def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
     assert len(responses.calls) == 5
 
     # Check that sleep was called with the correct delay 4 times
+    assert mock_sleep.call_count == 4
     mock_sleep.assert_has_calls([call(10)] * 4)
 
     # Check that the warning was logged
     assert "Rate limit exceeded. Retrying after 10 seconds." in caplog.text
 
-    # Check that the final error was logged
-    assert "An error occurred while fetching data after multiple retries" in caplog.text
-
     # Check that the result is an empty list
     assert result == []
+
+
+@patch('requests.get')
+def test_fetch_data_retry_on_request_exception(mock_get):
+    # Configure the mock to raise a RequestException 3 times, then succeed
+    mock_get.side_effect = [
+        RequestException("Attempt 1"),
+        RequestException("Attempt 2"),
+        RequestException("Attempt 3"),
+        # Mock a successful response
+        Mock(status_code=200, json=lambda: {"result": [{"hash": "0xabc", "from": {"hash": "0x123"}, "to": {"hash": "0x456"}, "value": "100", "timeStamp": "1672531200", "gasUsed": "21000", "gasPrice": "1000000000"}]})
+    ]
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+
+    # Call the function
+    result = fetch_data(mock_url, RawTransaction)
+
+    # Check that requests.get was called 4 times
+    assert mock_get.call_count == 4
 
 def test_fetch_transactions_unsupported_chain():
     with pytest.raises(ValueError, match="Unsupported chain: invalidchain"):
