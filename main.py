@@ -94,13 +94,13 @@ def process_transactions(
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
-        transactions, 'transaction', wallet_address
+        transactions, 'transaction', wallet_address, chain
     )
     extracted_token_transfers = extract_transaction_data(
-        token_transfers, 'token_transfers', wallet_address
+        token_transfers, 'token_transfers', wallet_address, chain
     )
     extracted_internal_transactions = extract_transaction_data(
-        internal_transactions, 'internal_transaction', wallet_address
+        internal_transactions, 'internal_transaction', wallet_address, chain
     )
 
     # Combine and sort all transactions by date
