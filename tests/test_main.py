@@ -3,8 +3,11 @@ from main import process_transactions, main, Args, process_batch_transactions
 from models import RawTransaction, RawTokenTransfer, Transaction
 import pytest
 from pydantic import ValidationError
+import responses
+from config import EXPLORER_URLS
 
 CHAIN = "mintchain"
+WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
 
 @pytest.fixture
 def mock_fetch_data():
@@ -130,3 +133,102 @@ def test_process_batch_transactions(mock_process_transactions):
     assert mock_process_transactions.call_count == 2
     mock_process_transactions.assert_any_call('0xaddress1', CHAIN, None, None)
     mock_process_transactions.assert_any_call('0xaddress2', CHAIN, None, None)
+
+
+@responses.activate
+def test_process_transactions_with_mocked_api():
+    base_url = EXPLORER_URLS[CHAIN]
+
+    # Mock for fetch_transactions
+    responses.add(
+        responses.GET,
+        f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        json={"result": [{
+            "hash": "0x1", "from": {"hash": WALLET_ADDRESS}, "to": {"hash": "0x456"}, "value": "100",
+            "timeStamp": "1673784000", "gasUsed": "21000", "gasPrice": "1000000000"
+        }]},
+        status=200,
+    )
+
+    # Mock for fetch_token_transfers
+    responses.add(
+        responses.GET,
+        f"{base_url}?module=account&action=tokentx&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        json={"result": [{
+            "hash": "0x2", "from": {"hash": "0x789"}, "to": {"hash": WALLET_ADDRESS}, "timeStamp": "1676894400",
+            "total": {"value": "200"}, "token": {"symbol": "TKN"}, "tokenDecimal": "18"
+        }]},
+        status=200,
+    )
+
+    # Mock for fetch_internal_transactions
+    responses.add(
+        responses.GET,
+        f"{base_url}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        json={"result": [{
+            "hash": "0x3", "from": {"hash": WALLET_ADDRESS}, "to": {"hash": "0xabc"}, "value": "300",
+            "timeStamp": "1679745600", "gasUsed": "21000", "gasPrice": "1000000000"
+        }]},
+        status=200,
+    )
+
+    # Test with no date range
+    transactions = process_transactions(WALLET_ADDRESS, CHAIN)
+    assert len(transactions) == 3
+    assert transactions[0].tx_hash == '0x1'
+    assert transactions[1].tx_hash == '0x2'
+    assert transactions[2].tx_hash == '0x3'
+
+    # Test with a start date
+    transactions = process_transactions(WALLET_ADDRESS, CHAIN, start_date_str='2023-02-01')
+    assert len(transactions) == 2
+    assert transactions[0].tx_hash == '0x2'
+    assert transactions[1].tx_hash == '0x3'
+
+    # Test with an end date
+    transactions = process_transactions(WALLET_ADDRESS, CHAIN, end_date_str='2023-02-28')
+    assert len(transactions) == 2
+    assert transactions[0].tx_hash == '0x1'
+    assert transactions[1].tx_hash == '0x2'
+
+
+@patch('main.argparse.ArgumentParser')
+@patch('main.process_transactions')
+@patch('main.write_transaction_data_to_json')
+def test_main_json_output(mock_write_json, mock_process, mock_argparse):
+    mock_args = MagicMock()
+    mock_args.wallet = '0x123'
+    mock_args.start_date = None
+    mock_args.end_date = None
+    mock_args.format = 'json'
+    mock_args.chain = CHAIN
+    mock_args.address_file = None
+    mock_argparse.return_value.parse_args.return_value = mock_args
+
+    mock_process.return_value = [Transaction.model_validate({'Date': '1', 'Description': 'test', 'TxHash': '0x1'})]
+
+    main()
+
+    mock_process.assert_called_with('0x123', CHAIN, None, None)
+    mock_write_json.assert_called_with('output/blockchain_transactions.json', [{'Date': '1', 'Sent Amount': None, 'Sent Currency': None, 'Received Amount': None, 'Received Currency': None, 'Fee Amount': None, 'Fee Currency': None, 'Net Worth Amount': None, 'Net Worth Currency': None, 'Label': None, 'Description': 'test', 'TxHash': '0x1'}])
+
+
+@patch('main.argparse.ArgumentParser')
+@patch('main.process_transactions')
+@patch('main.write_transaction_data_to_csv')
+def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
+    mock_args = MagicMock()
+    mock_args.wallet = '0x123'
+    mock_args.start_date = None
+    mock_args.end_date = None
+    mock_args.format = 'csv'
+    mock_args.chain = CHAIN
+    mock_args.address_file = None
+    mock_argparse.return_value.parse_args.return_value = mock_args
+
+    mock_process.return_value = [Transaction.model_validate({'Date': '1', 'Description': 'test', 'TxHash': '0x1'})]
+
+    main()
+
+    mock_process.assert_called_with('0x123', CHAIN, None, None)
+    mock_write_csv.assert_called_with('output/blockchain_transactions.csv', [{'Date': '1', 'Sent Amount': None, 'Sent Currency': None, 'Received Amount': None, 'Received Currency': None, 'Fee Amount': None, 'Fee Currency': None, 'Net Worth Amount': None, 'Net Worth Currency': None, 'Label': None, 'Description': 'test', 'TxHash': '0x1'}])
