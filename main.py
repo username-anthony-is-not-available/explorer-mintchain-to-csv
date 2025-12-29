@@ -172,9 +172,6 @@ def process_batch_transactions(
                     f"Failed to process address {wallet_address}: {e}"
                 )
 
-            # Rate limiting
-            time.sleep(0.2)  # 5 requests per second
-
     # Sort all collected transactions by date
     all_transactions_sorted: List[Transaction] = sorted(
         all_transactions, key=lambda trx: int(trx.date)
