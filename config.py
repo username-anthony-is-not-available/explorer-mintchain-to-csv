@@ -6,5 +6,12 @@ EXPLORER_URLS = {
     'arbiscan': 'https://api.arbiscan.io/api',
 }
 
+# Explorer API keys
+EXPLORER_API_KEYS = {
+    'etherscan': 'ETHERSCAN_API_KEY',
+    'basescan': 'BASESCAN_API_KEY',
+    'arbiscan': 'ARBISCAN_API_KEY',
+}
+
 # Timeout value (in seconds)
 TIMEOUT: int = 10

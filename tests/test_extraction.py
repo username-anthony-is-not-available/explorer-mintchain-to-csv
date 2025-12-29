@@ -26,7 +26,7 @@ MOCK_TOKEN_TRANSFER = RawTokenTransfer.model_validate({
 
 def test_extract_transaction_data_sent():
     """Tests that sent transactions are correctly processed."""
-    data = extract_transaction_data([MOCK_TRANSACTION], "transaction", WALLET_ADDRESS)
+    data = extract_transaction_data([MOCK_TRANSACTION], "transaction", WALLET_ADDRESS, "mintchain")
     assert len(data) == 1
     trx = data[0]
     assert trx.sent_amount == "1"
@@ -36,7 +36,7 @@ def test_extract_transaction_data_sent():
 
 def test_extract_token_transfer_received():
     """Tests that received token transfers are correctly processed."""
-    data = extract_transaction_data([MOCK_TOKEN_TRANSFER], "token_transfers", WALLET_ADDRESS)
+    data = extract_transaction_data([MOCK_TOKEN_TRANSFER], "token_transfers", WALLET_ADDRESS, "mintchain")
     assert len(data) == 1
     trx = data[0]
     assert trx.received_amount == "10"

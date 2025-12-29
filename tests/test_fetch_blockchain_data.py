@@ -184,3 +184,45 @@ def test_fetch_data_retry_on_request_exception(mock_get):
 def test_fetch_transactions_unsupported_chain():
     with pytest.raises(ValueError, match="Unsupported chain: invalidchain"):
         fetch_transactions(WALLET_ADDRESS, "invalidchain")
+
+@pytest.mark.parametrize("chain", ["etherscan", "basescan", "arbiscan"])
+def test_fetch_transactions_with_api_key(mocked_responses, monkeypatch, chain):
+    api_key_env_var = {"etherscan": "ETHERSCAN_API_KEY", "basescan": "BASESCAN_API_KEY", "arbiscan": "ARBISCAN_API_KEY"}[chain]
+    test_api_key = "TEST_API_KEY"
+    monkeypatch.setenv(api_key_env_var, test_api_key)
+
+    base_url = EXPLORER_URLS[chain]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&apikey={test_api_key}"
+
+    mocked_responses.add(
+        responses.GET,
+        mock_url,
+        json={"result": [{"hash": "0xabc", "from": {"hash": "0x123"}, "to": {"hash": "0x456"}, "value": "100", "timeStamp": "1672531200", "gasUsed": "21000", "gasPrice": "1000000000"}]},
+        status=200,
+    )
+
+    transactions = fetch_transactions(WALLET_ADDRESS, chain)
+    assert len(transactions) == 1
+    assert transactions[0].hash == "0xabc"
+    assert len(mocked_responses.calls) == 1
+    assert mocked_responses.calls[0].request.url == mock_url
+
+@pytest.mark.parametrize("chain", ["etherscan", "basescan", "arbiscan"])
+def test_fetch_transactions_without_api_key(mocked_responses, monkeypatch, chain):
+    api_key_env_var = {"etherscan": "ETHERSCAN_API_KEY", "basescan": "BASESCAN_API_KEY", "arbiscan": "ARBISCAN_API_KEY"}[chain]
+    monkeypatch.delenv(api_key_env_var, raising=False)
+
+    base_url = EXPLORER_URLS[chain]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+
+    mocked_responses.add(
+        responses.GET,
+        mock_url,
+        json={"result": [{"hash": "0xabc", "from": {"hash": "0x123"}, "to": {"hash": "0x456"}, "value": "100", "timeStamp": "1672531200", "gasUsed": "21000", "gasPrice": "1000000000"}]},
+        status=200,
+    )
+
+    transactions = fetch_transactions(WALLET_ADDRESS, chain)
+    assert len(transactions) == 1
+    assert len(mocked_responses.calls) == 1
+    assert mocked_responses.calls[0].request.url == mock_url

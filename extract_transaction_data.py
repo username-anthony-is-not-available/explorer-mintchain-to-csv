@@ -7,7 +7,8 @@ AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
 def extract_transaction_data(
     transaction_data: Sequence[AnyRawTransaction],
     transaction_type: str,
-    wallet_address: str
+    wallet_address: str,
+    chain: str
 ) -> list[Transaction]:
     extracted_data: list[Transaction] = []
 
@@ -27,7 +28,7 @@ def extract_transaction_data(
             'Fee Currency': None,
             'Net Worth Amount': '',
             'Net Worth Currency': '',
-            'Label': categorize_transaction(trx),
+            'Label': categorize_transaction(trx, chain),
         }
 
         if isinstance(trx, RawTransaction):
