@@ -163,6 +163,32 @@ def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
 
 
 @patch('requests.get')
+def test_fetch_data_retry_on_server_error(mock_get, caplog):
+    # Configure the mock to raise an HTTPError for a server-side error (e.g., 500)
+    mock_response = Mock()
+    mock_response.status_code = 500
+    mock_http_error = HTTPError("Server Error")
+    mock_http_error.response = mock_response
+    mock_response.raise_for_status.side_effect = mock_http_error
+    mock_get.return_value = mock_response
+
+    base_url = EXPLORER_URLS[CHAIN]
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+
+    with caplog.at_level(logging.ERROR):
+        result = fetch_data(mock_url, RawTransaction)
+
+    # Check that the function was retried
+    assert mock_get.call_count == 5
+
+    # Check that the result is an empty list
+    assert result == []
+
+    # Check that the final error was logged after all retries
+    assert "An error occurred while fetching data after multiple retries" in caplog.text
+
+
+@patch('requests.get')
 def test_fetch_data_retry_on_request_exception(mock_get):
     # Configure the mock to raise a RequestException 3 times, then succeed
     mock_get.side_effect = [

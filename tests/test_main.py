@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock, mock_open
-from main import process_transactions, main, Args, process_batch_transactions
+from main import process_transactions, main, Args, process_batch_transactions, combine_and_sort_transactions
 from models import RawTransaction, RawTokenTransfer, Transaction
 import pytest
 from pydantic import ValidationError
@@ -54,6 +54,24 @@ def test_date_range_filtering(mock_fetch_data):
     transactions = process_transactions('test_wallet', CHAIN, start_date_str='2023-01-01', end_date_str='2023-01-31')
     assert len(transactions) == 1
     assert transactions[0].date == '1673784000'
+
+
+def test_combine_and_sort_transactions():
+    transactions = [
+        Transaction.model_validate({'Date': '1679745600', 'Description': 'tx3', 'TxHash': '0x3'}),
+        Transaction.model_validate({'Date': '1673784000', 'Description': 'tx1', 'TxHash': '0x1'})
+    ]
+    token_transfers = [
+        Transaction.model_validate({'Date': '1676894400', 'Description': 'tx2', 'TxHash': '0x2'})
+    ]
+    internal_transactions = []
+
+    sorted_transactions = combine_and_sort_transactions(transactions, token_transfers, internal_transactions)
+
+    assert len(sorted_transactions) == 3
+    assert sorted_transactions[0].description == 'tx1'
+    assert sorted_transactions[1].description == 'tx2'
+    assert sorted_transactions[2].description == 'tx3'
 
 
 @patch('main.fetch_transactions', return_value=[])
