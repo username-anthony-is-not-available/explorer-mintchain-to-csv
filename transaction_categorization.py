@@ -7,6 +7,7 @@ DEFI_ROUTERS = {
     "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",  # Uniswap V2 Router 2
     "0xe592427a0aece92de3edee1f18e0157c05861564",  # Uniswap V3 Router
     "0x68b3465833fb72a70ecdf485e0e4c7bd8660fc45",  # Uniswap V3 Router 2
+    "0xe55b0367a178d9cf5f03354fd06904a8b3bb682a",  # Mintchain SwapRouter
 }
 
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
@@ -17,13 +18,25 @@ def categorize_transaction(transaction: AnyRawTransaction) -> str:
     Returns a Koinly-compatible label.
     """
     to_address = ""
+    from_address = ""
     if isinstance(transaction, RawTransaction):
         to_address = transaction.to_address.hash
+        from_address = transaction.from_address.hash
     elif isinstance(transaction, RawTokenTransfer):
         to_address = transaction.to_address.hash
+        from_address = transaction.from_address.hash
 
     if to_address.lower() in DEFI_ROUTERS:
         return "swap"
+    
+    # Detect Minting (from 0x00...00)
+    if from_address == "0x0000000000000000000000000000000000000000":
+        return "mint"
+
+    # Detect Burning (to 0x00...00 or dead address)
+    if to_address == "0x0000000000000000000000000000000000000000" or \
+       to_address.lower() == "0x000000000000000000000000000000000000dead":
+        return "burn"
 
     if isinstance(transaction, RawTokenTransfer):
         # ERC-721 NFTs typically have 0 decimals.
