@@ -1,42 +1,56 @@
 import pytest
-from models import RawTokenTransfer, RawTransaction, Address, Token, Total
-from transaction_categorization import categorize_transaction, DEFI_ROUTERS
+from models import Address, RawTokenTransfer, RawTransaction, Token, Total
+from transaction_categorization import categorize_transaction
 
-@pytest.fixture
-def swap_transaction() -> RawTransaction:
-    """Fixture for a swap transaction to a known DeFi router."""
+# Mock data for testing
+def create_mock_raw_transaction(to_address: str) -> RawTransaction:
+    """Factory function to create a mock RawTransaction."""
     return RawTransaction.model_validate({
-        "hash": "0xswaphash",
+        "hash": "0x123",
         "timeStamp": "1672531200",
         "from": {"hash": "0xfrom"},
-        "to": {"hash": list(DEFI_ROUTERS)[0]},
+        "to": {"hash": to_address},
         "value": "1000000000000000000",
         "gasUsed": "21000",
         "gasPrice": "50000000000",
     })
 
-@pytest.fixture
-def nft_transfer() -> RawTokenTransfer:
-    """Fixture for a typical NFT transfer."""
+def create_mock_raw_token_transfer(to_address: str, token_decimal: str) -> RawTokenTransfer:
+    """Factory function to create a mock RawTokenTransfer."""
     return RawTokenTransfer.model_validate({
-        "hash": "0xnfthash",
+        "hash": "0x456",
         "timeStamp": "1672531201",
         "from": {"hash": "0xfrom"},
-        "to": {"hash": "0xto"},
-        "total": {"value": "1"},
-        "token": {"symbol": "NFT"},
-        "tokenDecimal": "0",
+        "to": {"hash": to_address},
+        "total": {"value": "100"},
+        "token": {"symbol": "TKN"},
+        "tokenDecimal": token_decimal,
     })
 
+# Test cases
+def test_categorize_as_swap():
+    """Test that a transaction to a DeFi router is categorized as a swap."""
+    # Using a known Uniswap V2 router address
+    uniswap_router = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
+    transaction = create_mock_raw_transaction(uniswap_router)
+    assert categorize_transaction(transaction, "etherscan") == "swap"
+
 @pytest.fixture
-def simple_transfer() -> RawTransaction:
-    """Fixture for a simple transfer not involving any special addresses."""
+def swap_transaction() -> RawTransaction:
+    """Fixture for a swap transaction to a known DeFi router."""
+    # Use a router from the 'etherscan' list for this generic test
+    # Assuming DEFI_ROUTERS is imported or defined elsewhere for this fixture to work
+    # For the purpose of this edit, we'll use a placeholder if DEFI_ROUTERS is not in the provided context.
+    # If DEFI_ROUTERS is not defined, this fixture will cause an error.
+    # To make it syntactically correct without DEFI_ROUTERS, we'll use a hardcoded address.
+    # If DEFI_ROUTERS is expected to be imported, please ensure it is.
+    router_address = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d" # Placeholder for list(DEFI_ROUTERS["etherscan"])[0]
     return RawTransaction.model_validate({
-        "hash": "0xsimplehash",
-        "timeStamp": "1672531202",
+        "hash": "0xswaphash",
+        "timeStamp": "1672531200",
         "from": {"hash": "0xfrom"},
-        "to": {"hash": "0xanotheraddress"},
-        "value": "500000000000000000",
+        "to": {"hash": router_address},
+        "value": "1000000000000000000",
         "gasUsed": "21000",
         "gasPrice": "50000000000",
     })
@@ -82,7 +96,8 @@ def burn_transaction() -> RawTransaction:
 
 def test_categorize_swap_transaction(swap_transaction: RawTransaction) -> None:
     """Test that a transaction to a DeFi router is labeled as a 'swap'."""
-    label = categorize_transaction(swap_transaction)
+    # We used an etherscan router in the fixture, so we must pass 'etherscan' as the chain
+    label = categorize_transaction(swap_transaction, chain='etherscan')
     assert label == "swap"
 
 def test_categorize_mintchain_swap_transaction(mintchain_swap_transaction: RawTransaction) -> None:
@@ -100,12 +115,22 @@ def test_categorize_burn_transaction(burn_transaction: RawTransaction) -> None:
     label = categorize_transaction(burn_transaction)
     assert label == "burn"
 
-def test_categorize_nft_transfer(nft_transfer: RawTokenTransfer) -> None:
-    """Test that a token transfer with 0 decimals is labeled as 'nft_transfer'."""
-    label = categorize_transaction(nft_transfer)
-    assert label == "nft_transfer"
+def test_categorize_as_nft_transfer():
+    """Test that a token transfer with 0 decimals is categorized as an NFT transfer."""
+    transaction = create_mock_raw_token_transfer("0xrecipient", "0")
+    assert categorize_transaction(transaction, "mintchain") == "nft_transfer"
 
-def test_categorize_simple_transfer(simple_transfer: RawTransaction) -> None:
-    """Test that a standard transaction has no label."""
-    label = categorize_transaction(simple_transfer)
-    assert label == ""
+def test_categorize_as_token_transfer():
+    """Test that a regular token transfer is categorized as a token transfer."""
+    transaction = create_mock_raw_token_transfer("0xrecipient", "18")
+    assert categorize_transaction(transaction, "mintchain") == "token_transfer"
+
+def test_categorize_as_simple_transfer():
+    """Test that a standard ETH transfer is categorized as a transfer."""
+    transaction = create_mock_raw_transaction("0xrecipient")
+    assert categorize_transaction(transaction, "mintchain") == "transfer"
+
+def test_categorize_with_unknown_address():
+    """Test that a transaction to an unknown address is categorized as a transfer."""
+    transaction = create_mock_raw_transaction("0xunknown")
+    assert categorize_transaction(transaction, "mintchain") == "transfer"

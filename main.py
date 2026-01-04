@@ -2,10 +2,9 @@ import argparse
 import logging
 import os
 import sys
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional, Type
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
@@ -14,10 +13,12 @@ from cointracker_writer import write_transaction_data_to_cointracker_csv
 from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalculator_csv
 from csv_writer import write_transaction_data_to_csv
 from extract_transaction_data import extract_transaction_data
-from fetch_blockchain_data import (
-    fetch_internal_transactions,
-    fetch_token_transfers,
-    fetch_transactions,
+from explorer_adapters import (
+    ArbiscanAdapter,
+    BasescanAdapter,
+    EtherscanAdapter,
+    ExplorerAdapter,
+    MintchainAdapter,
 )
 from json_writer import write_transaction_data_to_json
 from koinly_writer import write_transaction_data_to_koinly_csv
@@ -29,6 +30,14 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Adapter mapping
+ADAPTERS: Dict[str, Type[ExplorerAdapter]] = {
+    'mintchain': MintchainAdapter,
+    'etherscan': EtherscanAdapter,
+    'basescan': BasescanAdapter,
+    'arbiscan': ArbiscanAdapter,
+}
 
 class Args(BaseModel):
     wallet: Optional[str] = None
@@ -87,20 +96,26 @@ def process_transactions(
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None
 ) -> List[Transaction]:
+    # Get the adapter for the selected chain
+    adapter_class = ADAPTERS.get(chain)
+    if not adapter_class:
+        raise ValueError(f"Unsupported chain: {chain}")
+    adapter = adapter_class(chain)
+
     # Fetch and combine transactions
-    transactions = fetch_transactions(wallet_address, chain)
-    token_transfers = fetch_token_transfers(wallet_address, chain)
-    internal_transactions = fetch_internal_transactions(wallet_address, chain)
+    transactions = adapter.get_transactions(wallet_address)
+    token_transfers = adapter.get_token_transfers(wallet_address)
+    internal_transactions = adapter.get_internal_transactions(wallet_address)
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
-        transactions, 'transaction', wallet_address
+        transactions, 'transaction', wallet_address, chain
     )
     extracted_token_transfers = extract_transaction_data(
-        token_transfers, 'token_transfers', wallet_address
+        token_transfers, 'token_transfers', wallet_address, chain
     )
     extracted_internal_transactions = extract_transaction_data(
-        internal_transactions, 'internal_transaction', wallet_address
+        internal_transactions, 'internal_transaction', wallet_address, chain
     )
 
     # Combine and sort all transactions by date
@@ -171,9 +186,6 @@ def process_batch_transactions(
                 logging.error(
                     f"Failed to process address {wallet_address}: {e}"
                 )
-
-            # Rate limiting
-            time.sleep(0.2)  # 5 requests per second
 
     # Sort all collected transactions by date
     all_transactions_sorted: List[Transaction] = sorted(

@@ -1,12 +1,12 @@
 import logging
 from typing import List, Type, TypeVar
-import requests
-from pydantic import ValidationError, BaseModel
-from requests.exceptions import RequestException, HTTPError
-from tenacity import retry, stop_after_attempt, wait_exponential, RetryError, retry_if_exception_type
-from urllib.parse import urlencode
 
-from config import EXPLORER_URLS, TIMEOUT
+import requests
+from pydantic import BaseModel, ValidationError
+from requests.exceptions import HTTPError, RequestException
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from config import TIMEOUT
 from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar('T', bound=BaseModel)
@@ -65,57 +65,3 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
             raise  # Reraise RequestException to be handled by tenacity
         logging.error(f"An unexpected error occurred: {str(e)}")
         return []
-
-
-# Function to fetch transactions
-def fetch_transactions(wallet_address: str, chain: str) -> List[RawTransaction]:
-    base_url = EXPLORER_URLS.get(chain)
-    if not base_url:
-        raise ValueError(f"Unsupported chain: {chain}")
-    params = {
-        'module': 'account',
-        'action': 'txlist',
-        'address': wallet_address,
-        'startblock': 0,
-        'endblock': 99999999,
-        'sort': 'asc',
-    }
-    encoded_params = urlencode(params)
-    url = f"{base_url}?{encoded_params}"
-    return fetch_data(url, RawTransaction)
-
-
-# Function to fetch token transfers
-def fetch_token_transfers(wallet_address: str, chain: str) -> List[RawTokenTransfer]:
-    base_url = EXPLORER_URLS.get(chain)
-    if not base_url:
-        raise ValueError(f"Unsupported chain: {chain}")
-    params = {
-        'module': 'account',
-        'action': 'tokentx',
-        'address': wallet_address,
-        'startblock': 0,
-        'endblock': 99999999,
-        'sort': 'asc',
-    }
-    encoded_params = urlencode(params)
-    url = f"{base_url}?{encoded_params}"
-    return fetch_data(url, RawTokenTransfer)
-
-
-# Function to fetch internal transactions
-def fetch_internal_transactions(wallet_address: str, chain: str) -> List[RawTransaction]:
-    base_url = EXPLORER_URLS.get(chain)
-    if not base_url:
-        raise ValueError(f"Unsupported chain: {chain}")
-    params = {
-        'module': 'account',
-        'action': 'txlistinternal',
-        'address': wallet_address,
-        'startblock': 0,
-        'endblock': 99999999,
-        'sort': 'asc',
-    }
-    encoded_params = urlencode(params)
-    url = f"{base_url}?{encoded_params}"
-    return fetch_data(url, RawTransaction)

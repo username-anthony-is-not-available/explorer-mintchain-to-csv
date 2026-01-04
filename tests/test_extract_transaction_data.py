@@ -14,7 +14,7 @@ def test_extract_transaction_data_regular_transaction_sent():
         "gasPrice": "1000000000"
     }
     raw_trx = RawTransaction.model_validate(raw_trx_data)
-    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS)
+    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.sent_amount == "100"
@@ -34,7 +34,7 @@ def test_extract_transaction_data_regular_transaction_received():
         "gasPrice": "1000000000"
     }
     raw_trx = RawTransaction.model_validate(raw_trx_data)
-    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS)
+    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.received_amount == "100"
@@ -53,7 +53,7 @@ def test_extract_transaction_data_token_transfer_sent():
         "tokenDecimal": "18"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
-    transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS)
+    transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.sent_amount == "200"
@@ -72,10 +72,51 @@ def test_extract_transaction_data_token_transfer_received():
         "tokenDecimal": "18"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
-    transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS)
+    transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.received_amount == "200"
     assert trx.received_currency == "TKN"
+    assert trx.sent_amount is None
+    assert trx.fee_amount is None
+
+def test_extract_transaction_data_internal_transaction_sent():
+    raw_trx_data = {
+        "hash": "0xghi",
+        "from": {"hash": WALLET_ADDRESS},
+        "to": {"hash": "0x456"},
+        "value": "300",
+        "timeStamp": "1672531202",
+        "gasUsed": "21000",
+        "gasPrice": "1000000000"
+    }
+    raw_trx = RawTransaction.model_validate(raw_trx_data)
+    transactions = extract_transaction_data([raw_trx], "internal_transaction", WALLET_ADDRESS, "mintchain")
+    assert len(transactions) == 1
+    trx = transactions[0]
+    assert trx.description == "internal"
+    assert trx.sent_amount == "300"
+    assert trx.sent_currency == "ETH"
+    assert trx.fee_amount == "0.000021"
+    assert trx.fee_currency == "ETH"
+    assert trx.received_amount is None
+
+def test_extract_transaction_data_internal_transaction_received():
+    raw_trx_data = {
+        "hash": "0xghi",
+        "from": {"hash": "0x456"},
+        "to": {"hash": WALLET_ADDRESS},
+        "value": "300",
+        "timeStamp": "1672531202",
+        "gasUsed": "21000",
+        "gasPrice": "1000000000"
+    }
+    raw_trx = RawTransaction.model_validate(raw_trx_data)
+    transactions = extract_transaction_data([raw_trx], "internal_transaction", WALLET_ADDRESS, "mintchain")
+    assert len(transactions) == 1
+    trx = transactions[0]
+    assert trx.description == "internal"
+    assert trx.received_amount == "300"
+    assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
