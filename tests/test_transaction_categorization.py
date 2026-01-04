@@ -35,6 +35,86 @@ def test_categorize_as_swap():
     transaction = create_mock_raw_transaction(uniswap_router)
     assert categorize_transaction(transaction, "etherscan") == "swap"
 
+@pytest.fixture
+def swap_transaction() -> RawTransaction:
+    """Fixture for a swap transaction to a known DeFi router."""
+    # Use a router from the 'etherscan' list for this generic test
+    # Assuming DEFI_ROUTERS is imported or defined elsewhere for this fixture to work
+    # For the purpose of this edit, we'll use a placeholder if DEFI_ROUTERS is not in the provided context.
+    # If DEFI_ROUTERS is not defined, this fixture will cause an error.
+    # To make it syntactically correct without DEFI_ROUTERS, we'll use a hardcoded address.
+    # If DEFI_ROUTERS is expected to be imported, please ensure it is.
+    router_address = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d" # Placeholder for list(DEFI_ROUTERS["etherscan"])[0]
+    return RawTransaction.model_validate({
+        "hash": "0xswaphash",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0xfrom"},
+        "to": {"hash": router_address},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    })
+
+@pytest.fixture
+def mintchain_swap_transaction() -> RawTransaction:
+    """Fixture for a swap transaction on Mintchain."""
+    return RawTransaction.model_validate({
+        "hash": "0xmintchainswaphash",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0xfrom"},
+        "to": {"hash": "0xe55b0367a178d9cf5f03354fd06904a8b3bb682a"},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    })
+
+@pytest.fixture
+def mint_transaction() -> RawTransaction:
+    """Fixture for a mint transaction."""
+    return RawTransaction.model_validate({
+        "hash": "0xminthash",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0x0000000000000000000000000000000000000000"},
+        "to": {"hash": "0xreceiver"},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    })
+
+@pytest.fixture
+def burn_transaction() -> RawTransaction:
+    """Fixture for a burn transaction."""
+    return RawTransaction.model_validate({
+        "hash": "0xburnhash",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0xsender"},
+        "to": {"hash": "0x000000000000000000000000000000000000dEaD"},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    })
+
+def test_categorize_swap_transaction(swap_transaction: RawTransaction) -> None:
+    """Test that a transaction to a DeFi router is labeled as a 'swap'."""
+    # We used an etherscan router in the fixture, so we must pass 'etherscan' as the chain
+    label = categorize_transaction(swap_transaction, chain='etherscan')
+    assert label == "swap"
+
+def test_categorize_mintchain_swap_transaction(mintchain_swap_transaction: RawTransaction) -> None:
+    """Test that a Mintchain swap transaction is labeled as a 'swap'."""
+    label = categorize_transaction(mintchain_swap_transaction)
+    assert label == "swap"
+
+def test_categorize_mint_transaction(mint_transaction: RawTransaction) -> None:
+    """Test that a mint transaction is labeled as 'mint'."""
+    label = categorize_transaction(mint_transaction)
+    assert label == "mint"
+
+def test_categorize_burn_transaction(burn_transaction: RawTransaction) -> None:
+    """Test that a burn transaction is labeled as 'burn'."""
+    label = categorize_transaction(burn_transaction)
+    assert label == "burn"
+
 def test_categorize_as_nft_transfer():
     """Test that a token transfer with 0 decimals is categorized as an NFT transfer."""
     transaction = create_mock_raw_token_transfer("0xrecipient", "0")

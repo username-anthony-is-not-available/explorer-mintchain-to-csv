@@ -17,26 +17,40 @@ DEFI_ROUTERS = {
         "0x1b02da8cb0d097eb8d57a175b88c7d8b47997506",  # SushiSwap (Arbitrum)
     },
     "mintchain": {
-        # Add MintChain DeFi routers here if applicable
+        "0xe55b0367a178d9cf5f03354fd06904a8b3bb682a",  # Mintchain SwapRouter
     }
 }
 
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
 
-def categorize_transaction(transaction: AnyRawTransaction, chain: str) -> str:
+def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintchain') -> str:
     """
     Categorizes a transaction based on its type and attributes.
     Returns a Koinly-compatible label.
     """
     to_address = ""
+    from_address = ""
+    
     if hasattr(transaction, 'to_address') and hasattr(transaction.to_address, 'hash'):
         to_address = transaction.to_address.hash.lower()
+    
+    if hasattr(transaction, 'from_address') and hasattr(transaction.from_address, 'hash'):
+        from_address = transaction.from_address.hash.lower()
 
     # Get the set of DeFi routers for the specified chain
     chain_routers = DEFI_ROUTERS.get(chain, set())
 
     if to_address in chain_routers:
         return "swap"
+    
+    # Detect Minting (from 0x00...00)
+    if from_address == "0x0000000000000000000000000000000000000000":
+        return "mint"
+
+    # Detect Burning (to 0x00...00 or dead address)
+    if to_address == "0x0000000000000000000000000000000000000000" or \
+       to_address == "0x000000000000000000000000000000000000dead":
+        return "burn"
 
     if isinstance(transaction, RawTokenTransfer):
         # ERC-721 NFTs typically have 0 decimals.
