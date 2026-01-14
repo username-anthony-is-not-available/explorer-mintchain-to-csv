@@ -1,5 +1,15 @@
 from typing import Optional
 from pydantic import BaseModel, Field
+from enum import Enum
+
+class TransactionType(Enum):
+    BRIDGE = "bridge"
+    SWAP = "swap"
+    MINT = "mint"
+    BURN = "burn"
+    NFT_TRANSFER = "nft_transfer"
+    TOKEN_TRANSFER = "token_transfer"
+    TRANSFER = "transfer"
 
 class Address(BaseModel):
     hash: str

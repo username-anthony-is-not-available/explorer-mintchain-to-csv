@@ -134,3 +134,9 @@ def test_categorize_with_unknown_address():
     """Test that a transaction to an unknown address is categorized as a transfer."""
     transaction = create_mock_raw_transaction("0xunknown")
     assert categorize_transaction(transaction, "mintchain") == "transfer"
+
+def test_categorize_as_bridge():
+    """Test that a transaction to a bridge contract is categorized as a bridge."""
+    bridge_address = "0x2b3f201543adf73160ba42e1a5b7750024f30420"
+    transaction = create_mock_raw_transaction(bridge_address)
+    assert categorize_transaction(transaction, "mintchain") == "bridge"

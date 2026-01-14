@@ -1,5 +1,5 @@
 from typing import Union
-from models import RawTokenTransfer, RawTransaction
+from models import RawTokenTransfer, RawTransaction, TransactionType
 
 # A sample list of DeFi router addresses, organized by chain
 DEFI_ROUTERS = {
@@ -21,6 +21,13 @@ DEFI_ROUTERS = {
     }
 }
 
+BRIDGE_CONTRACTS = {
+    "mintchain": {
+        "0x2b3f201543adf73160ba42e1a5b7750024f30420",  # L1StandardBridge
+        "0xc2c908f3226d9082130d8e48378cd2efb08b521d",  # L1ERC721Bridge
+    }
+}
+
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
 
 def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintchain') -> str:
@@ -39,26 +46,30 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
 
     # Get the set of DeFi routers for the specified chain
     chain_routers = DEFI_ROUTERS.get(chain, set())
+    chain_bridge_contracts = BRIDGE_CONTRACTS.get(chain, set())
 
     if to_address in chain_routers:
-        return "swap"
+        return TransactionType.SWAP.value
     
+    if to_address in chain_bridge_contracts:
+        return TransactionType.BRIDGE.value
+
     # Detect Minting (from 0x00...00)
     if from_address == "0x0000000000000000000000000000000000000000":
-        return "mint"
+        return TransactionType.MINT.value
 
     # Detect Burning (to 0x00...00 or dead address)
     if to_address == "0x0000000000000000000000000000000000000000" or \
        to_address == "0x000000000000000000000000000000000000dead":
-        return "burn"
+        return TransactionType.BURN.value
 
     if isinstance(transaction, RawTokenTransfer):
         # ERC-721 NFTs typically have 0 decimals.
         if hasattr(transaction, 'tokenDecimal') and transaction.tokenDecimal == '0':
-            return "nft_transfer"
-        return "token_transfer"
+            return TransactionType.NFT_TRANSFER.value
+        return TransactionType.TOKEN_TRANSFER.value
 
     if isinstance(transaction, RawTransaction):
-        return "transfer"
+        return TransactionType.TRANSFER.value
 
     return "" # Default for simple transfers, deposits, withdrawals.
