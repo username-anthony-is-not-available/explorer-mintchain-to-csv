@@ -47,23 +47,6 @@ class Args(BaseModel):
     format: str
     chain: str = 'mintchain'
 
-    @model_validator(mode='before')
-    def validate_wallet_or_address_file(cls, values):
-        wallet = values.get('wallet')
-        address_file = values.get('address_file')
-
-        # Get wallet from environment if not provided in args
-        if not wallet and not address_file:
-            wallet = os.getenv('WALLET_ADDRESS')
-
-        if not wallet and not address_file:
-            raise ValueError('Either --wallet, --address-file, or WALLET_ADDRESS environment variable must be provided.')
-
-        if wallet and address_file:
-            raise ValueError('Provide either --wallet or --address-file, but not both.')
-
-        return values
-
     @field_validator('start_date', 'end_date')
     def validate_date_format(cls, v):
         if v is None:
@@ -144,62 +127,11 @@ def process_transactions(
     return all_sorted_transactions
 
 
-def process_batch_transactions(
-    address_file: str,
-    chain: str,
-    start_date_str: Optional[str] = None,
-    end_date_str: Optional[str] = None,
-) -> List[Transaction]:
-    """
-    Processes transactions for a batch of wallet addresses from a file.
-    """
-    try:
-        with open(address_file, 'r') as f:
-            wallet_addresses = [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        logging.error(f"Address file not found: {address_file}")
-        return []
-
-    all_transactions: List[Transaction] = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {
-            executor.submit(
-                process_transactions,
-                wallet_address,
-                chain,
-                start_date_str,
-                end_date_str
-            ): wallet_address
-            for wallet_address in wallet_addresses
-        }
-
-        for i, future in enumerate(as_completed(futures)):
-            wallet_address = futures[future]
-            try:
-                transactions = future.result()
-                all_transactions.extend(transactions)
-                logging.info(
-                    f"Successfully processed address "
-                    f"{i + 1}/{len(wallet_addresses)}: {wallet_address}"
-                )
-            except Exception as e:
-                logging.error(
-                    f"Failed to process address {wallet_address}: {e}"
-                )
-
-    # Sort all collected transactions by date
-    all_transactions_sorted: List[Transaction] = sorted(
-        all_transactions, key=lambda trx: int(trx.date)
-    )
-
-    return all_transactions_sorted
-
-
 # Main function
 def main() -> None:
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Fetch blockchain transaction data.')
-    parser.add_argument('--wallet', type=str, help='Wallet address to fetch transactions for.')
+    parser.add_argument('--wallet', type=str, help='Comma-separated wallet addresses to fetch transactions for.')
     parser.add_argument('--address-file', type=str, help='File containing a list of wallet addresses.')
     parser.add_argument('--start-date', type=str, help='Start date in YYYY-MM-DD format.')
     parser.add_argument('--end-date', type=str, help='End date in YYYY-MM-DD format.')
@@ -219,52 +151,75 @@ def main() -> None:
         logging.error(f"Argument validation error: {e}")
         return
 
-    # Determine whether to run in batch mode or single address mode
+    # Collect wallet addresses from all sources
+    wallet_addresses = []
+    if validated_args.wallet:
+        wallet_addresses.extend(validated_args.wallet.split(','))
     if validated_args.address_file:
-        all_sorted_transactions = process_batch_transactions(
-            validated_args.address_file,
-            validated_args.chain,
-            validated_args.start_date,
-            validated_args.end_date,
+        try:
+            with open(validated_args.address_file, 'r') as f:
+                wallet_addresses.extend([line.strip() for line in f if line.strip()])
+        except FileNotFoundError:
+            logging.error(f"Address file not found: {validated_args.address_file}")
+
+    # Fallback to environment variables if no addresses are provided via arguments
+    if not wallet_addresses:
+        env_addresses = os.getenv('WALLET_ADDRESSES')
+        if env_addresses:
+            wallet_addresses.extend(env_addresses.split(','))
+        elif os.getenv('WALLET_ADDRESS'):
+            wallet_addresses.append(os.getenv('WALLET_ADDRESS'))
+
+    # Ensure there are unique addresses to process
+    unique_addresses = sorted(list(set(addr.strip() for addr in wallet_addresses if addr.strip())))
+
+    if not unique_addresses:
+        logging.error(
+            "No wallet addresses provided. Use --wallet, --address-file, "
+            "or set WALLET_ADDRESS/WALLET_ADDRESSES in your .env file."
         )
-    else:
-        wallet_address = validated_args.wallet or os.getenv('WALLET_ADDRESS')
-        if not wallet_address:
-            logging.error(
-                "No wallet address provided. "
-                "Set it in the .env file or use the --wallet argument."
-            )
-            return
+        return
 
-        all_sorted_transactions = process_transactions(
-            wallet_address,
-            validated_args.chain,
-            validated_args.start_date,
-            validated_args.end_date
-        )
+    # Process each wallet address
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_address = {
+            executor.submit(
+                process_transactions,
+                address,
+                validated_args.chain,
+                validated_args.start_date,
+                validated_args.end_date
+            ): address for address in unique_addresses
+        }
 
-    # Convert Pydantic models to dictionaries for writers
-    output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
+        for i, future in enumerate(as_completed(future_to_address)):
+            wallet_address = future_to_address[future]
+            try:
+                all_sorted_transactions = future.result()
 
-    # Define the output path based on the format
-    output_file = f'output/blockchain_transactions.{validated_args.format}'
+                # Convert Pydantic models to dictionaries for writers
+                output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
 
-    # Write the a to the selected format
-    if validated_args.format == 'csv':
-        write_transaction_data_to_csv(output_file, output_data)
-        print(f"CSV file has been written to {output_file}")
-    elif validated_args.format == 'json':
-        write_transaction_data_to_json(output_file, output_data)
-        print(f"JSON file has been written to {output_file}")
-    elif validated_args.format == 'cointracker':
-        write_transaction_data_to_cointracker_csv(output_file, output_data)
-        print(f"CoinTracker CSV file has been written to {output_file}")
-    elif validated_args.format == 'cryptotaxcalculator':
-        write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-        print(f"CryptoTaxCalculator CSV file has been written to {output_file}")
-    elif validated_args.format == 'koinly':
-        write_transaction_data_to_koinly_csv(output_file, output_data)
-        print(f"Koinly CSV file has been written to {output_file}")
+                # Define the output path based on the format
+                output_file = f'output/{wallet_address}_transactions.{validated_args.format}'
+
+                # Write the data to the selected format
+                if validated_args.format == 'csv':
+                    write_transaction_data_to_csv(output_file, output_data)
+                elif validated_args.format == 'json':
+                    write_transaction_data_to_json(output_file, output_data)
+                elif validated_args.format == 'cointracker':
+                    write_transaction_data_to_cointracker_csv(output_file, output_data)
+                elif validated_args.format == 'cryptotaxcalculator':
+                    write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
+                elif validated_args.format == 'koinly':
+                    write_transaction_data_to_koinly_csv(output_file, output_data)
+
+                logging.info(f"({i + 1}/{len(unique_addresses)}) "
+                             f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}")
+
+            except Exception as e:
+                logging.error(f"Failed to process address {wallet_address}: {e}")
 
 if __name__ == "__main__":
     main()
