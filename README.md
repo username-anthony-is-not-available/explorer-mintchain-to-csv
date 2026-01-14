@@ -13,7 +13,8 @@ A tool designed to streamline the process of exporting blockchain transaction da
 - Combines and sorts all transaction data by timestamp.
 - Exports the transaction data to multiple formats: generic CSV, JSON, Koinly, CoinTracker, and CryptoTaxCalculator.
 - Filters transactions by date range.
-- Supports single wallet addresses or a file containing multiple addresses.
+- Supports batch processing for multiple wallet addresses from command-line, file, or environment variables.
+- Generates separate output files for each wallet address.
 - Configurable via environment variables or command-line arguments.
 
 ## Requirements
@@ -62,8 +63,11 @@ PYTHONPATH=. pytest
 2. Edit the `.env` file to add your wallet address and any optional API keys:
 
    ```bash
-   # Your EVM wallet address for fetching transactions
+   # A single EVM wallet address
    WALLET_ADDRESS=your_wallet_address_here
+
+   # A comma-separated list of EVM wallet addresses
+   WALLET_ADDRESSES=address1,address2,address3
 
    # API keys for blockchain explorers (optional, but recommended for higher rate limits)
    ETHERSCAN_API_KEY=
@@ -87,7 +91,7 @@ python main.py
 
 | Option         | Description                                                                          |
 | -------------- | ------------------------------------------------------------------------------------ |
-| `--wallet`     | Wallet address to fetch transactions for (overrides `.env`).                           |
+| `--wallet`     | Comma-separated wallet addresses to fetch transactions for.                          |
 | `--address-file`| File containing a list of wallet addresses.                                          |
 | `--start-date` | Filter transactions starting from this date (YYYY-MM-DD format).                     |
 | `--end-date`   | Filter transactions up to this date (YYYY-MM-DD format).                             |
@@ -96,10 +100,16 @@ python main.py
 
 ### Examples
 
-Export all transactions for a specific wallet from Etherscan:
+Export all transactions for a single wallet from Etherscan:
 
 ```bash
 python main.py --wallet 0xYourWalletAddressHere --chain etherscan
+```
+
+Export transactions for multiple wallets using the `--wallet` flag:
+
+```bash
+python main.py --wallet 0xAddress1,0xAddress2 --chain etherscan --format json
 ```
 
 Export transactions for a specific date range from Base:
@@ -108,19 +118,19 @@ Export transactions for a specific date range from Base:
 python main.py --wallet 0xYourWalletAddressHere --chain basescan --start-date 2024-01-01 --end-date 2024-12-31
 ```
 
-Export transactions for multiple wallets from Arbitrum to the Koinly format:
+Export transactions for multiple wallets from a file on Arbitrum to the Koinly format:
 
 ```bash
 python main.py --address-file my_wallets.txt --chain arbiscan --format koinly
 ```
 
-The output file will be saved to the `output/` folder (e.g., `output/blockchain_transactions.csv`).
+The output files will be saved to the `output/` folder with a separate file for each wallet (e.g., `output/0xYourWalletAddressHere_transactions.csv`).
 
 ## Troubleshooting
 
 - **Empty output file:** Ensure that the API response contains data for your wallet address on the selected blockchain. Check the logs for any error messages.
 - **API request issues:** If you receive timeouts or errors, you may be getting rate-limited. Consider adding API keys to your `.env` file. You can also adjust the `TIMEOUT` value in `config.py`.
-- **No wallet address:** If you see "No wallet address provided", ensure you've set `WALLET_ADDRESS` in your `.env` file or use the `--wallet` or `--address-file` argument.
+- **No wallet address:** If you see an error about no wallet address being provided, ensure you have set `WALLET_ADDRESS` or `WALLET_ADDRESSES` in your `.env` file or are using the `--wallet` or `--address-file` arguments.
 
 ## Acknowledgments
 

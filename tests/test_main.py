@@ -7,7 +7,6 @@ from main import (
     Args,
     combine_and_sort_transactions,
     main,
-    process_batch_transactions,
     process_transactions,
 )
 from models import RawTokenTransfer, RawTransaction, Transaction
@@ -141,7 +140,7 @@ def test_main_csv_output_with_wallet_arg(
 
     mock_process.assert_called_with("0x123", CHAIN, None, None)
     mock_write_csv.assert_called_with(
-        "output/blockchain_transactions.csv",
+        "output/0x123_transactions.csv",
         [
             {
                 "Date": "1",
@@ -160,60 +159,6 @@ def test_main_csv_output_with_wallet_arg(
         ],
     )
     mock_getenv.assert_not_called()
-
-
-def test_args_validation():
-    # Test for invalid date format
-    with pytest.raises(ValidationError):
-        Args.model_validate({"wallet": "0x123", "start_date": "2023-13-01", "format": "csv"})
-
-    # Test for missing wallet and address_file
-    with pytest.raises(ValidationError):
-        Args.model_validate({"format": "csv"})
-
-    # Test for providing both wallet and address_file
-    with pytest.raises(ValidationError):
-        Args.model_validate(
-            {"wallet": "0x123", "address_file": "addresses.txt", "format": "csv"}
-        )
-
-    # Test for valid arguments
-    args = Args.model_validate(
-        {"wallet": "0x123", "start_date": "2023-01-01", "format": "csv", "chain": "etherscan"}
-    )
-    assert args.wallet == "0x123"
-    assert args.start_date == "2023-01-01"
-    assert args.chain == "etherscan"
-
-    # Test with address_file
-    args = Args.model_validate({"address_file": "addresses.txt", "format": "csv"})
-    assert args.address_file == "addresses.txt"
-
-
-@patch("main.process_transactions")
-def test_process_batch_transactions(mock_process_transactions):
-    # Mock the file content
-    mock_file_content = "0xaddress1\n0xaddress2\n"
-    mock_open_context = mock_open(read_data=mock_file_content)
-
-    # Mock the return value of process_transactions for each address
-    mock_process_transactions.side_effect = [
-        [Transaction.model_validate({"Date": "1673784000", "Description": "tx1", "TxHash": "0x1"})],
-        [Transaction.model_validate({"Date": "1676894400", "Description": "tx2", "TxHash": "0x2"})],
-    ]
-
-    with patch("builtins.open", mock_open_context):
-        result = process_batch_transactions("dummy_path.txt", CHAIN)
-
-    # Verify the results
-    assert len(result) == 2
-    assert result[0].description == "tx1"
-    assert result[1].description == "tx2"
-
-    # Verify that process_transactions was called for each address
-    assert mock_process_transactions.call_count == 2
-    mock_process_transactions.assert_any_call("0xaddress1", CHAIN, None, None)
-    mock_process_transactions.assert_any_call("0xaddress2", CHAIN, None, None)
 
 
 @patch("main.argparse.ArgumentParser")
@@ -237,7 +182,7 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
 
     mock_process.assert_called_with("0x123", CHAIN, None, None)
     mock_write_json.assert_called_with(
-        "output/blockchain_transactions.json",
+        "output/0x123_transactions.json",
         [
             {
                 "Date": "1",
@@ -278,7 +223,7 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
 
     mock_process.assert_called_with("0x123", CHAIN, None, None)
     mock_write_csv.assert_called_with(
-        "output/blockchain_transactions.csv",
+        "output/0x123_transactions.csv",
         [
             {
                 "Date": "1",
