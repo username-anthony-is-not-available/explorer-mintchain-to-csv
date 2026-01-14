@@ -64,7 +64,7 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
 @patch("main.write_transaction_data_to_json")
-@patch("builtins.open", new_callable=mock_open, read_data="0xFileAddress1\\n0xFileAddress2")
+@patch("builtins.open", new_callable=mock_open, read_data="0xFileAddress1\n0xFileAddress2")
 def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, mock_argparse):
     """
     Tests processing of multiple wallets from a file specified by --address-file.
@@ -79,8 +79,8 @@ def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, 
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.side_effect = [
-        [Transaction.model_validate({"Date": "3", "Description": "tx3", "TxHash": "0x3", "Sent Amount": 1})],
-        [Transaction.model_validate({"Date": "4", "Description": "tx4", "TxHash": "0x4", "Sent Amount": 1})],
+        [Transaction.model_validate({"Date": "3", "Description": "tx3", "TxHash": "0x3", "Sent Amount": "1"})],
+        [Transaction.model_validate({"Date": "4", "Description": "tx4", "TxHash": "0x4", "Sent Amount": "1"})],
     ]
 
     main()
