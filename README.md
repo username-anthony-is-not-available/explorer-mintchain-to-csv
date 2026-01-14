@@ -44,6 +44,26 @@ A tool designed to streamline the process of exporting blockchain transaction da
    pip install -r requirements.txt -r requirements-dev.txt
    ```
 
+## Docker Setup
+
+This project supports a Docker-based workflow to simplify setup and ensure a consistent environment.
+
+1.  **Run the setup script:**
+
+    This script will build the Docker image and prepare your environment.
+
+    ```bash
+    ./setup.sh
+    ```
+
+2.  **Run the application:**
+
+    After the setup is complete, you can run the application using `docker compose`.
+
+    ```bash
+    docker compose run --rm app --wallet YOUR_WALLET_ADDRESS
+    ```
+
 ## Testing
 
 To run the test suite, use the following command:
