@@ -10,6 +10,9 @@ class TransactionType(Enum):
     NFT_TRANSFER = "nft_transfer"
     TOKEN_TRANSFER = "token_transfer"
     TRANSFER = "transfer"
+    STAKING = "staking"
+    AIRDROP = "airdrop"
+    MINING = "mining"
 
 class Address(BaseModel):
     hash: str

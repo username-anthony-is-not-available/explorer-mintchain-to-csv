@@ -54,6 +54,18 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
     if to_address in chain_bridge_contracts:
         return TransactionType.BRIDGE.value
 
+    # Placeholder for staking detection
+    if "stake" in to_address:
+        return TransactionType.STAKING.value
+
+    # Placeholder for airdrop detection
+    if "airdrop" in to_address:
+        return TransactionType.AIRDROP.value
+
+    # Placeholder for mining detection
+    if "mining" in to_address:
+        return TransactionType.MINING.value
+
     # Detect Minting (from 0x00...00)
     if from_address == "0x0000000000000000000000000000000000000000":
         return TransactionType.MINT.value
