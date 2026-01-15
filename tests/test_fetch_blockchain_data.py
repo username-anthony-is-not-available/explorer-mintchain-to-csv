@@ -1,8 +1,9 @@
 import logging
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 import responses
+import requests
 from requests.exceptions import HTTPError, RequestException
 
 from config import EXPLORER_URLS
@@ -13,7 +14,7 @@ from explorer_adapters import (
     MintchainAdapter,
 )
 from fetch_blockchain_data import fetch_data
-from models import RawTransaction
+from models import RawTokenTransfer, RawTransaction
 
 WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
 CHAIN = "mintchain"
@@ -347,3 +348,195 @@ def test_adapter_without_api_key(mocked_responses, monkeypatch, chain):
     assert len(transactions) == 1
     assert len(mocked_responses.calls) == 1
     assert mocked_responses.calls[0].request.url == mock_url
+
+# Mock JSON responses imitating the blockchain explorer API
+MOCK_TRANSACTIONS_RESPONSE = {
+    "status": "1",
+    "message": "OK",
+    "result": [
+        {
+            "hash": "0xtxhash1",
+            "timeStamp": "1633027200",
+            "from": {"hash": "0xfromaddress1"},
+            "to": {"hash": "0xtoaddress1"},
+            "value": "1000000000000000000",
+            "gasUsed": "21000",
+            "gasPrice": "50000000000"
+        },
+        {
+            "hash": "0xtxhash2",
+            "timeStamp": "1633027201",
+            "from": {"hash": "0xfromaddress2"},
+            "to": {"hash": "0xtoaddress2"},
+            "value": "2000000000000000000",
+            "gasUsed": "21000",
+            "gasPrice": "50000000000"
+        }
+    ]
+}
+
+MOCK_TOKEN_TRANSFERS_RESPONSE = {
+    "status": "1",
+    "message": "OK",
+    "result": [
+        {
+            "hash": "0xtokenhash1",
+            "timeStamp": "1633027300",
+            "from": {"hash": "0xfromaddress3"},
+            "to": {"hash": "0xtoaddress3"},
+            "total": {"value": "500"},
+            "token": {"symbol": "TKN"},
+            "tokenDecimal": "18"
+        },
+        {
+            "hash": "0xtokenhash2",
+            "timeStamp": "1633027301",
+            "from": {"hash": "0xfromaddress4"},
+            "to": {"hash": "0xtoaddress4"},
+            "total": {"value": "1000"},
+            "token": {"symbol": "MTK"},
+            "tokenDecimal": "6"
+        }
+    ]
+}
+
+# Mock response with one valid and one invalid item (missing 'hash')
+MOCK_INVALID_ITEM_RESPONSE = {
+    "status": "1",
+    "message": "OK",
+    "result": [
+        {
+            "hash": "0xtxhash_valid",
+            "timeStamp": "1633027200",
+            "from": {"hash": "0xfromaddress_valid"},
+            "to": {"hash": "0xtoaddress_valid"},
+            "value": "1000000000000000000",
+            "gasUsed": "21000",
+            "gasPrice": "50000000000"
+        },
+        {
+            # Missing 'hash'
+            "timeStamp": "1633027201",
+            "from": {"hash": "0xfromaddress_invalid"},
+            "to": {"hash": "0xtoaddress_invalid"},
+            "value": "2000000000000000000",
+            "gasUsed": "21000",
+            "gasPrice": "50000000000"
+        }
+    ]
+}
+
+# Mock response where the 'result' is not a list
+MOCK_INVALID_RESULT_RESPONSE = {
+    "status": "0",
+    "message": "Error",
+    "result": "Invalid API key"
+}
+
+DUMMY_ENDPOINT = "http://fake-api.com/data"
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_parses_transactions_correctly(mock_get):
+    """
+    Verify that fetch_data correctly parses a successful transaction API response
+    and returns a list of RawTransaction objects.
+    """
+    # Arrange
+    mock_response = MagicMock()
+    mock_response.json.return_value = MOCK_TRANSACTIONS_RESPONSE
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
+
+    # Act
+    result = fetch_data(DUMMY_ENDPOINT, RawTransaction)
+
+    # Assert
+    assert len(result) == 2
+    assert isinstance(result[0], RawTransaction)
+    assert result[0].hash == "0xtxhash1"
+    assert result[1].hash == "0xtxhash2"
+    mock_get.assert_called_once_with(DUMMY_ENDPOINT, timeout=10)
+    mock_response.raise_for_status.assert_called_once()
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_parses_token_transfers_correctly(mock_get):
+    """
+    Verify that fetch_data correctly parses a successful token transfer API response
+    and returns a list of RawTokenTransfer objects.
+    """
+    # Arrange
+    mock_response = MagicMock()
+    mock_response.json.return_value = MOCK_TOKEN_TRANSFERS_RESPONSE
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
+
+    # Act
+    result = fetch_data(DUMMY_ENDPOINT, RawTokenTransfer)
+
+    # Assert
+    assert len(result) == 2
+    assert isinstance(result[0], RawTokenTransfer)
+    assert result[0].hash == "0xtokenhash1"
+    assert result[0].token.symbol == "TKN"
+    assert result[1].hash == "0xtokenhash2"
+    assert result[1].token.symbol == "MTK"
+    mock_get.assert_called_once_with(DUMMY_ENDPOINT, timeout=10)
+    mock_response.raise_for_status.assert_called_once()
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_handles_api_error_gracefully(mock_get):
+    """
+    Verify that fetch_data returns an empty list when the API call
+    raises an exception (e.g., HTTPError).
+    """
+    # Arrange
+    mock_get.side_effect = requests.exceptions.RequestException("API is down")
+
+    # Act
+    result = fetch_data(DUMMY_ENDPOINT, RawTransaction)
+
+    # Assert
+    assert result == []
+    mock_get.assert_called()
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_handles_validation_error(mock_get, caplog):
+    """
+    Verify that fetch_data logs a warning for validation errors but continues
+    processing other valid items in the response.
+    """
+    # Arrange
+    mock_response = MagicMock()
+    mock_response.json.return_value = MOCK_INVALID_ITEM_RESPONSE
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
+
+    # Act
+    with caplog.at_level(logging.WARNING):
+        result = fetch_data(DUMMY_ENDPOINT, RawTransaction)
+
+    # Assert
+    assert len(result) == 1
+    assert result[0].hash == "0xtxhash_valid"
+    assert "Validation error for item" in caplog.text
+
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
+    """
+    Verify that fetch_data returns an empty list and logs an error when the
+    API response's 'result' field is not a list.
+    """
+    # Arrange
+    mock_response = MagicMock()
+    mock_response.json.return_value = MOCK_INVALID_RESULT_RESPONSE
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
+
+    # Act
+    with caplog.at_level(logging.ERROR):
+        result = fetch_data(DUMMY_ENDPOINT, RawTransaction)
+
+    # Assert
+    assert result == []
+    assert f"API response for {DUMMY_ENDPOINT} does not contain a list in 'result'" in caplog.text
