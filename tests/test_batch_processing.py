@@ -14,7 +14,10 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
     Tests processing of multiple wallets provided via the --wallet argument.
     """
     mock_args = MagicMock()
-    mock_args.wallet = "0xAddress1,0xAddress2"
+    # Using 42-char addresses
+    addr1 = "0x" + "1" * 40
+    addr2 = "0x" + "2" * 40
+    mock_args.wallet = f"{addr1},{addr2}"
     mock_args.start_date = None
     mock_args.end_date = None
     mock_args.format = "csv"
@@ -32,13 +35,13 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
 
     # Verify process_transactions is called for each address
     assert mock_process.call_count == 2
-    mock_process.assert_any_call("0xAddress1", CHAIN, None, None)
-    mock_process.assert_any_call("0xAddress2", CHAIN, None, None)
+    mock_process.assert_any_call(addr1, CHAIN, None, None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None)
 
     # Verify separate CSV files are written for each address
     assert mock_write_csv.call_count == 2
     mock_write_csv.assert_any_call(
-        "output/0xAddress1_transactions.csv",
+        f"output/{addr1}_transactions.csv",
         [
             {
                 "Date": "1", "Sent Amount": None, "Sent Currency": None,
@@ -49,7 +52,7 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
         ],
     )
     mock_write_csv.assert_any_call(
-        "output/0xAddress2_transactions.csv",
+        f"output/{addr2}_transactions.csv",
         [
             {
                 "Date": "2", "Sent Amount": None, "Sent Currency": None,
@@ -64,11 +67,15 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
 @patch("main.write_transaction_data_to_json")
-@patch("builtins.open", new_callable=mock_open, read_data="0xFileAddress1\n0xFileAddress2")
+@patch("builtins.open", new_callable=mock_open)
 def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, mock_argparse):
     """
     Tests processing of multiple wallets from a file specified by --address-file.
     """
+    addr1 = "0x" + "3" * 40
+    addr2 = "0x" + "4" * 40
+    mock_open_file.return_value.__enter__.return_value = [f"{addr1}\n", f"{addr2}\n"]
+
     mock_args = MagicMock()
     mock_args.wallet = None
     mock_args.start_date = None
@@ -85,10 +92,10 @@ def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, 
 
     main()
 
-    mock_open_file.assert_called_with("addresses.txt", "r")
+    mock_open_file.assert_called_with("addresses.txt", "r", newline='')
     assert mock_process.call_count == 2
-    mock_process.assert_any_call("0xFileAddress1", CHAIN, None, None)
-    mock_process.assert_any_call("0xFileAddress2", CHAIN, None, None)
+    mock_process.assert_any_call(addr1, CHAIN, None, None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None)
 
     assert mock_write_json.call_count == 2
 
@@ -101,6 +108,8 @@ def test_main_batch_env_var(mock_getenv, mock_write_csv, mock_process, mock_argp
     """
     Tests processing of multiple wallets from the WALLET_ADDRESSES environment variable.
     """
+    addr1 = "0x" + "5" * 40
+    addr2 = "0x" + "6" * 40
     mock_args = MagicMock()
     mock_args.wallet = None
     mock_args.start_date = None
@@ -113,7 +122,7 @@ def test_main_batch_env_var(mock_getenv, mock_write_csv, mock_process, mock_argp
     # Mock environment variables
     def getenv_side_effect(key):
         if key == 'WALLET_ADDRESSES':
-            return "0xEnvAddress1,0xEnvAddress2"
+            return f"{addr1},{addr2}"
         return None
     mock_getenv.side_effect = getenv_side_effect
 
@@ -125,7 +134,44 @@ def test_main_batch_env_var(mock_getenv, mock_write_csv, mock_process, mock_argp
     main()
 
     assert mock_process.call_count == 2
-    mock_process.assert_any_call("0xEnvAddress1", CHAIN, None, None)
-    mock_process.assert_any_call("0xEnvAddress2", CHAIN, None, None)
+    mock_process.assert_any_call(addr1, CHAIN, None, None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None)
 
     assert mock_write_csv.call_count == 2
+
+
+@patch("main.argparse.ArgumentParser")
+@patch("main.process_transactions")
+@patch("main.write_transaction_data_to_json")
+@patch("main.csv.reader")
+@patch("builtins.open", new_callable=mock_open)
+def test_main_batch_address_file_csv(mock_open_file, mock_csv_reader, mock_write_json, mock_process, mock_argparse):
+    """
+    Tests processing of multiple wallets from a CSV file.
+    """
+    addr1 = "0x" + "7" * 40
+    addr2 = "0x" + "8" * 40
+    # Mock CSV reader to return rows
+    mock_csv_reader.return_value = [
+        ["address", "name"],
+        [addr1, "Alice"],
+        [addr2, "Bob"]
+    ]
+
+    mock_args = MagicMock()
+    mock_args.wallet = None
+    mock_args.start_date = None
+    mock_args.end_date = None
+    mock_args.format = "json"
+    mock_args.chain = CHAIN
+    mock_args.address_file = "addresses.csv"
+    mock_argparse.return_value.parse_args.return_value = mock_args
+
+    mock_process.side_effect = [[], []]
+
+    main()
+
+    mock_open_file.assert_called_with("addresses.csv", "r", newline='')
+    assert mock_process.call_count == 2
+    mock_process.assert_any_call(addr1, CHAIN, None, None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None)

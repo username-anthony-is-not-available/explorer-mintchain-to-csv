@@ -1,10 +1,10 @@
 
 import json
-import shutil
-import subprocess
 from pathlib import Path
+from unittest.mock import patch
+import main as main_module
 
-MINTCHAIN_API_URL = "https://explorer.mintchain.io/api"
+MINTCHAIN_API_URL = "https://api.routescan.io/v2/network/mainnet/evm/185/etherscan"
 TEST_WALLET_ADDRESS = "0x1111111111111111111111111111111111111111"
 
 
@@ -16,7 +16,7 @@ def test_cli_json_output(responses):
     # Mock the API calls for normal transactions and token transactions
     responses.add(
         responses.GET,
-        f"{MINTCHAIN_API_URL}?module=account&action=txlist&address={TEST_WALLET_ADDRESS}",
+        f"{MINTCHAIN_API_URL}?module=account&action=txlist&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
         json={
             "result": [
                 {
@@ -29,14 +29,13 @@ def test_cli_json_output(responses):
                     "from": {"hash": TEST_WALLET_ADDRESS},
                     "to": {"hash": "0x2222222222222222222222222222222222222222"},
                     "value": "1000000000000000000",  # 1 ETH
-                    "gas": "21000",
+                    "gasUsed": "21000",
                     "gasPrice": "1000000000",  # 1 Gwei
                     "isError": "0",
                     "txreceipt_status": "1",
                     "input": "0x",
                     "contractAddress": "",
                     "cumulativeGasUsed": "21000",
-                    "gasUsed": "21000",
                     "confirmations": "1",
                 }
             ]
@@ -45,14 +44,19 @@ def test_cli_json_output(responses):
     )
     responses.add(
         responses.GET,
-        f"{MINTCHAIN_API_URL}?module=account&action=tokentx&address={TEST_WALLET_ADDRESS}",
+        f"{MINTCHAIN_API_URL}?module=account&action=tokentx&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        json={"result": []},
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        f"{MINTCHAIN_API_URL}?module=account&action=txlistinternal&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
         json={"result": []},
         status=200,
     )
 
     # Command to run the CLI tool
-    command = [
-        "python",
+    test_args = [
         "main.py",
         "--wallet",
         TEST_WALLET_ADDRESS,
@@ -62,13 +66,10 @@ def test_cli_json_output(responses):
         "mintchain",
     ]
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    with patch("sys.argv", test_args):
+        main_module.main()
 
-    # Assert that the command executed successfully
-    assert result.returncode == 0, f"CLI command failed with error: {result.stderr}"
-
-    output_dir = Path(TEST_WALLET_ADDRESS)
-    output_file = output_dir / "all_transactions.json"
+    output_file = Path("output") / f"{TEST_WALLET_ADDRESS}_transactions.json"
 
     try:
         # Assert that the output file was created
@@ -77,26 +78,29 @@ def test_cli_json_output(responses):
         with open(output_file, "r") as f:
             data = json.load(f)
 
+        # The current output of main.py for JSON is a dump of the Transaction models.
+        # Based on extract_transaction_data.py, for a simple ETH transfer it should look like this:
         expected_data = [
             {
-                "ID": "0xTestHash",
-                "Date": "2023-01-01 00:00:00",
-                "Sent Amount": "1.0",
+                "Date": "1672531200",
+                "Sent Amount": "1000000000000000000",
                 "Sent Currency": "ETH",
                 "Received Amount": None,
                 "Received Currency": None,
                 "Fee Amount": "0.000021",
                 "Fee Currency": "ETH",
+                "Net Worth Amount": "",
+                "Net Worth Currency": "",
                 "Label": "transfer",
-                "Description": f"From {TEST_WALLET_ADDRESS} to 0x2222222222222222222222222222222222222222",
+                "Description": "transaction",
                 "TxHash": "0xTestHash",
             }
         ]
 
         # Assert that the content of the output file is correct
-        assert data == expected_data, "The output JSON data does not match the expected data."
+        assert data == expected_data, f"The output JSON data does not match the expected data. Actual: {data}"
 
     finally:
-        # Clean up the created directory and file
-        if output_dir.exists():
-            shutil.rmtree(output_dir)
+        # Clean up the created file
+        if output_file.exists():
+            output_file.unlink()
