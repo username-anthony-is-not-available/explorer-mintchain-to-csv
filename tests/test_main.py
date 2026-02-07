@@ -124,7 +124,8 @@ def test_main_csv_output_with_wallet_arg(
     mock_getenv, mock_write_csv, mock_process, mock_argparse
 ):
     mock_args = MagicMock()
-    mock_args.wallet = "0x123"
+    addr = "0x" + "a" * 40
+    mock_args.wallet = addr
     mock_args.start_date = None
     mock_args.end_date = None
     mock_args.format = "csv"
@@ -138,9 +139,9 @@ def test_main_csv_output_with_wallet_arg(
 
     main()
 
-    mock_process.assert_called_with("0x123", CHAIN, None, None)
+    mock_process.assert_called_with(addr, CHAIN, None, None)
     mock_write_csv.assert_called_with(
-        "output/0x123_transactions.csv",
+        f"output/{addr}_transactions.csv",
         [
             {
                 "Date": "1",
@@ -166,7 +167,8 @@ def test_main_csv_output_with_wallet_arg(
 @patch("main.write_transaction_data_to_json")
 def test_main_json_output(mock_write_json, mock_process, mock_argparse):
     mock_args = MagicMock()
-    mock_args.wallet = "0x123"
+    addr = "0x" + "b" * 40
+    mock_args.wallet = addr
     mock_args.start_date = None
     mock_args.end_date = None
     mock_args.format = "json"
@@ -180,9 +182,9 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with("0x123", CHAIN, None, None)
+    mock_process.assert_called_with(addr, CHAIN, None, None)
     mock_write_json.assert_called_with(
-        "output/0x123_transactions.json",
+        f"output/{addr}_transactions.json",
         [
             {
                 "Date": "1",
@@ -207,7 +209,8 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
 @patch("main.write_transaction_data_to_csv")
 def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
     mock_args = MagicMock()
-    mock_args.wallet = "0x123"
+    addr = "0x" + "c" * 40
+    mock_args.wallet = addr
     mock_args.start_date = None
     mock_args.end_date = None
     mock_args.format = "csv"
@@ -221,9 +224,9 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with("0x123", CHAIN, None, None)
+    mock_process.assert_called_with(addr, CHAIN, None, None)
     mock_write_csv.assert_called_with(
-        "output/0x123_transactions.csv",
+        f"output/{addr}_transactions.csv",
         [
             {
                 "Date": "1",
