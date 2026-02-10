@@ -9,15 +9,29 @@ KOINLY_LABEL_MAP = {
     TransactionType.MINING.value: "mining",
 }
 
-def write_transaction_data_to_koinly_csv(output_file: str, transaction_data: List[Dict[str, Union[str, None]]]) -> None:
+MINTCHAIN_LABEL_MAP = {
+    TransactionType.TRANSFER.value: "",
+    TransactionType.TOKEN_TRANSFER.value: "",
+}
+
+
+def write_transaction_data_to_koinly_csv(
+    output_file: str,
+    transaction_data: List[Dict[str, Union[str, None]]],
+    chain: str = 'mintchain'
+) -> None:
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     processed_transactions = []
     for tx in transaction_data:
         processed_tx = tx.copy()
         label = processed_tx.get("Label")
-        if label and label in KOINLY_LABEL_MAP:
+
+        if chain == 'mintchain' and label in MINTCHAIN_LABEL_MAP:
+            processed_tx["Label"] = MINTCHAIN_LABEL_MAP[label]
+        elif label and label in KOINLY_LABEL_MAP:
             processed_tx["Label"] = KOINLY_LABEL_MAP[label]
+
         processed_transactions.append(processed_tx)
 
     fieldnames: List[str] = [

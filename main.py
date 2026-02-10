@@ -201,7 +201,7 @@ def process_batch_transactions(
             elif output_format == 'cryptotaxcalculator':
                 write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
             elif output_format == 'koinly':
-                write_transaction_data_to_koinly_csv(output_file, output_data)
+                write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
 
             logging.info(f"({i + 1}/{len(addresses)}) "
                          f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}")
