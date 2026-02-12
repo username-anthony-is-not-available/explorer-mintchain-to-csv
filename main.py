@@ -3,6 +3,7 @@ import csv
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict, List, Optional, Type
 
@@ -166,6 +167,52 @@ def process_transactions(
     return all_sorted_transactions
 
 
+def process_single_wallet(
+    wallet_address: str,
+    chain: str,
+    output_format: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    index: int = 0,
+    total_count: int = 1
+) -> None:
+    """
+    Processes a single wallet address.
+    """
+    try:
+        all_sorted_transactions = process_transactions(
+            wallet_address,
+            chain,
+            start_date,
+            end_date
+        )
+
+        # Convert Pydantic models to dictionaries for writers
+        output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
+
+        # Define the output path based on the format
+        output_file = f'output/{wallet_address}_transactions.{output_format}'
+
+        # Write the data to the selected format
+        if output_format == 'csv':
+            write_transaction_data_to_csv(output_file, output_data)
+        elif output_format == 'json':
+            write_transaction_data_to_json(output_file, output_data)
+        elif output_format == 'cointracker':
+            write_transaction_data_to_cointracker_csv(output_file, output_data)
+        elif output_format == 'cryptotaxcalculator':
+            write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
+        elif output_format == 'koinly':
+            write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
+
+        logging.info(f"({index + 1}/{total_count}) "
+                     f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}")
+
+    except Exception as e:
+        logging.error(f"Failed to process address {wallet_address}: {e}")
+        raise
+
+
 def process_batch_transactions(
     addresses: List[str],
     chain: str,
@@ -174,40 +221,30 @@ def process_batch_transactions(
     end_date: Optional[str] = None
 ) -> None:
     """
-    Processes multiple wallet addresses sequentially.
+    Processes multiple wallet addresses concurrently.
     """
-    for i, wallet_address in enumerate(addresses):
-        try:
-            all_sorted_transactions = process_transactions(
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {
+            executor.submit(
+                process_single_wallet,
                 wallet_address,
                 chain,
+                output_format,
                 start_date,
-                end_date
-            )
+                end_date,
+                i,
+                len(addresses)
+            ): wallet_address
+            for i, wallet_address in enumerate(addresses)
+        }
 
-            # Convert Pydantic models to dictionaries for writers
-            output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
-
-            # Define the output path based on the format
-            output_file = f'output/{wallet_address}_transactions.{output_format}'
-
-            # Write the data to the selected format
-            if output_format == 'csv':
-                write_transaction_data_to_csv(output_file, output_data)
-            elif output_format == 'json':
-                write_transaction_data_to_json(output_file, output_data)
-            elif output_format == 'cointracker':
-                write_transaction_data_to_cointracker_csv(output_file, output_data)
-            elif output_format == 'cryptotaxcalculator':
-                write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-            elif output_format == 'koinly':
-                write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
-
-            logging.info(f"({i + 1}/{len(addresses)}) "
-                         f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}")
-
-        except Exception as e:
-            logging.error(f"Failed to process address {wallet_address}: {e}")
+        for future in as_completed(futures):
+            wallet_address = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                # Error is already logged in process_single_wallet
+                pass
 
 
 # Main function

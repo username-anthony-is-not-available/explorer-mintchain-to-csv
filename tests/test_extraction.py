@@ -6,7 +6,7 @@ WALLET_ADDRESS = "test_wallet"
 
 MOCK_TRANSACTION = RawTransaction.model_validate({
     "timeStamp": "1673784000",
-    "value": "1",
+    "value": "1000000000000000000",
     "gasUsed": "21000",
     "gasPrice": "1000000000",
     "hash": "0x123",
@@ -16,7 +16,7 @@ MOCK_TRANSACTION = RawTransaction.model_validate({
 
 MOCK_TOKEN_TRANSFER = RawTokenTransfer.model_validate({
     "timeStamp": "1676894400",
-    "total": {"value": "10"},
+    "total": {"value": "10000000000000000000"},
     "token": {"symbol": "TOK"},
     "hash": "0x456",
     "from": {"hash": "sender"},
