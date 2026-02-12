@@ -6,9 +6,9 @@ from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalcul
 def test_write_transaction_data_to_cryptotaxcalculator_csv():
     mock_data = [
         # DeFi Swap - Fiat to Crypto (Buy)
-        {'Date': '2024-01-01 12:00:00', 'Sent Amount': '1000', 'Sent Currency': 'USD', 'Received Amount': '0.5', 'Received Currency': 'ETH', 'Label': 'defi_swap', 'Fee Amount': '10', 'Fee Currency': 'USD', 'TxHash': '0x1'},
+        {'Date': '2024-01-01 12:00:00', 'Sent Amount': '1000', 'Sent Currency': 'USD', 'Received Amount': '0.5', 'Received Currency': 'ETH', 'Label': 'swap', 'Fee Amount': '10', 'Fee Currency': 'USD', 'TxHash': '0x1'},
         # DeFi Swap - Crypto to Fiat (Sell)
-        {'Date': '2024-01-02 12:00:00', 'Sent Amount': '0.5', 'Sent Currency': 'ETH', 'Received Amount': '1000', 'Received Currency': 'USD', 'Label': 'defi_swap', 'Fee Amount': '0.001', 'Fee Currency': 'ETH', 'TxHash': '0x2'},
+        {'Date': '2024-01-02 12:00:00', 'Sent Amount': '0.5', 'Sent Currency': 'ETH', 'Received Amount': '1000', 'Received Currency': 'USD', 'Label': 'swap', 'Fee Amount': '0.001', 'Fee Currency': 'ETH', 'TxHash': '0x2'},
         # Simple Transfer - Send
         {'Date': '2024-01-03 12:00:00', 'Sent Amount': '100', 'Sent Currency': 'USDC', 'Received Amount': None, 'Received Currency': None, 'Label': 'simple_transfer', 'Fee Amount': '5', 'Fee Currency': 'ETH', 'TxHash': '0x3'},
         # Simple Transfer - Receive

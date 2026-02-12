@@ -48,7 +48,7 @@ def write_transaction_data_to_cryptotaxcalculator_csv(output_file: str, transact
                 row_data['Base Amount'] = received_amount
 
             # Refine classification with the label if it exists
-            if label == 'defi_swap':
+            if label == 'swap':
                 fiat_currencies = ['USD', 'EUR', 'GBP', 'AUD']
                 sent_is_fiat = sent_currency in fiat_currencies
                 received_is_fiat = received_currency in fiat_currencies
