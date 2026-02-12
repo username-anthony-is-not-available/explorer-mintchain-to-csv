@@ -147,6 +147,18 @@ def test_categorize_as_bridge_l2():
     transaction = create_mock_raw_transaction(bridge_address)
     assert categorize_transaction(transaction, "mintchain") == "bridge"
 
+def test_categorize_as_bridge_messenger_l1():
+    """Test that a transaction to L1CrossDomainMessenger is categorized as a bridge on etherscan."""
+    bridge_address = "0x194589998064f25ff15a3677a003d14f67a3ae8b"
+    transaction = create_mock_raw_transaction(bridge_address)
+    assert categorize_transaction(transaction, "etherscan") == "bridge"
+
+def test_categorize_as_bridge_messenger_l2():
+    """Test that a transaction to L2CrossDomainMessenger is categorized as a bridge on mintchain."""
+    bridge_address = "0x4200000000000000000000000000000000000007"
+    transaction = create_mock_raw_transaction(bridge_address)
+    assert categorize_transaction(transaction, "mintchain") == "bridge"
+
 def test_categorize_as_bridge_incoming():
     """Test that a transaction from a bridge contract is categorized as a bridge."""
     bridge_address = "0x4200000000000000000000000000000000000010"

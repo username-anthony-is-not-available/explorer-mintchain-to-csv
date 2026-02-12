@@ -7,6 +7,7 @@ KOINLY_LABEL_MAP = {
     TransactionType.STAKING.value: "staking",
     TransactionType.AIRDROP.value: "airdrop",
     TransactionType.MINING.value: "mining",
+    TransactionType.BRIDGE.value: "Bridge",
 }
 
 MINTCHAIN_LABEL_MAP = {

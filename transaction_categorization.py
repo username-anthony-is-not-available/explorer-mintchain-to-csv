@@ -25,10 +25,14 @@ BRIDGE_CONTRACTS = {
     "etherscan": {
         "0x2b3f201543adf73160ba42e1a5b7750024f30420",  # MintChain L1StandardBridge
         "0xc2c908f3226d9082130d8e48378cd2efb08b521d",  # MintChain L1ERC721Bridge
+        "0x8922883499e90956e3d237194d7423d9e0b08006",  # OptimismPortal
+        "0x194589998064f25ff15a3677a003d14f67a3ae8b",  # L1CrossDomainMessenger
     },
     "mintchain": {
         "0x4200000000000000000000000000000000000010",  # L2StandardBridge
         "0x4200000000000000000000000000000000000014",  # L2ERC721Bridge
+        "0x4200000000000000000000000000000000000007",  # L2CrossDomainMessenger
+        "0x4200000000000000000000000000000000000016",  # L2ToL1MessagePasser
     }
 }
 
