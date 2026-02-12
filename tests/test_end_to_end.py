@@ -83,7 +83,7 @@ def test_cli_json_output(responses):
         expected_data = [
             {
                 "Date": "1672531200",
-                "Sent Amount": "1000000000000000000",
+                "Sent Amount": "1",
                 "Sent Currency": "ETH",
                 "Received Amount": None,
                 "Received Currency": None,

@@ -8,7 +8,7 @@ def test_extract_transaction_data_regular_transaction_sent():
         "hash": "0xabc",
         "from": {"hash": WALLET_ADDRESS},
         "to": {"hash": "0x456"},
-        "value": "100",
+        "value": "1000000000000000000", # 1 ETH
         "timeStamp": "1672531200",
         "gasUsed": "21000",
         "gasPrice": "1000000000"
@@ -17,7 +17,7 @@ def test_extract_transaction_data_regular_transaction_sent():
     transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
-    assert trx.sent_amount == "100"
+    assert trx.sent_amount == "1"
     assert trx.sent_currency == "ETH"
     assert trx.fee_amount == "0.000021"
     assert trx.fee_currency == "ETH"
@@ -28,7 +28,7 @@ def test_extract_transaction_data_regular_transaction_received():
         "hash": "0xabc",
         "from": {"hash": "0x456"},
         "to": {"hash": WALLET_ADDRESS},
-        "value": "100",
+        "value": "2500000000000000000", # 2.5 ETH
         "timeStamp": "1672531200",
         "gasUsed": "21000",
         "gasPrice": "1000000000"
@@ -37,7 +37,7 @@ def test_extract_transaction_data_regular_transaction_received():
     transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
-    assert trx.received_amount == "100"
+    assert trx.received_amount == "2.5"
     assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
@@ -48,16 +48,16 @@ def test_extract_transaction_data_token_transfer_sent():
         "from": {"hash": WALLET_ADDRESS},
         "to": {"hash": "0x456"},
         "timeStamp": "1672531201",
-        "total": {"value": "200"},
-        "token": {"symbol": "TKN"},
-        "tokenDecimal": "18"
+        "total": {"value": "2000000"},
+        "token": {"symbol": "USDC"},
+        "tokenDecimal": "6"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
-    assert trx.sent_amount == "200"
-    assert trx.sent_currency == "TKN"
+    assert trx.sent_amount == "2"
+    assert trx.sent_currency == "USDC"
     assert trx.received_amount is None
     assert trx.fee_amount is None
 
@@ -67,7 +67,7 @@ def test_extract_transaction_data_token_transfer_received():
         "from": {"hash": "0x456"},
         "to": {"hash": WALLET_ADDRESS},
         "timeStamp": "1672531201",
-        "total": {"value": "200"},
+        "total": {"value": "500000000000000000000"}, # 500 TKN
         "token": {"symbol": "TKN"},
         "tokenDecimal": "18"
     }
@@ -75,7 +75,7 @@ def test_extract_transaction_data_token_transfer_received():
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
     assert len(transactions) == 1
     trx = transactions[0]
-    assert trx.received_amount == "200"
+    assert trx.received_amount == "500"
     assert trx.received_currency == "TKN"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
@@ -85,7 +85,7 @@ def test_extract_transaction_data_internal_transaction_sent():
         "hash": "0xghi",
         "from": {"hash": WALLET_ADDRESS},
         "to": {"hash": "0x456"},
-        "value": "300",
+        "value": "300000000000000000", # 0.3 ETH
         "timeStamp": "1672531202",
         "gasUsed": "21000",
         "gasPrice": "1000000000"
@@ -95,7 +95,7 @@ def test_extract_transaction_data_internal_transaction_sent():
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.description == "internal"
-    assert trx.sent_amount == "300"
+    assert trx.sent_amount == "0.3"
     assert trx.sent_currency == "ETH"
     assert trx.fee_amount == "0.000021"
     assert trx.fee_currency == "ETH"
@@ -106,7 +106,7 @@ def test_extract_transaction_data_internal_transaction_received():
         "hash": "0xghi",
         "from": {"hash": "0x456"},
         "to": {"hash": WALLET_ADDRESS},
-        "value": "300",
+        "value": "450000000000000000", # 0.45 ETH
         "timeStamp": "1672531202",
         "gasUsed": "21000",
         "gasPrice": "1000000000"
@@ -116,7 +116,7 @@ def test_extract_transaction_data_internal_transaction_received():
     assert len(transactions) == 1
     trx = transactions[0]
     assert trx.description == "internal"
-    assert trx.received_amount == "300"
+    assert trx.received_amount == "0.45"
     assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None

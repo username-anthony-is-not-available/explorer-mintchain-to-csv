@@ -1,8 +1,20 @@
+from decimal import Decimal
 from typing import Sequence, Union
 from models import RawTokenTransfer, RawTransaction, Transaction
 from transaction_categorization import categorize_transaction
 
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
+
+def scale_amount(amount: str, decimals: int) -> str:
+    """Scales an amount from base units to decimal units."""
+    if not amount or not amount.isdigit():
+        return amount
+    scaled = Decimal(amount) / Decimal(10**decimals)
+    # Format to string, avoiding scientific notation and stripping trailing zeros
+    formatted = format(scaled, 'f')
+    if '.' in formatted:
+        formatted = formatted.rstrip('0').rstrip('.')
+    return formatted if formatted != "" else "0"
 
 def extract_transaction_data(
     transaction_data: Sequence[AnyRawTransaction],
@@ -34,21 +46,22 @@ def extract_transaction_data(
         if isinstance(trx, RawTransaction):
             data['Description'] = 'internal' if transaction_type == 'internal_transaction' else 'transaction'
             if is_sender:
-                data['Sent Amount'] = trx.value
+                data['Sent Amount'] = scale_amount(trx.value, 18)
                 data['Sent Currency'] = 'ETH'
                 data['Fee Amount'] = f"{(int(trx.gasUsed) * int(trx.gasPrice)) / 1e18:.6f}"
                 data['Fee Currency'] = 'ETH'
             if is_receiver:
-                data['Received Amount'] = trx.value
+                data['Received Amount'] = scale_amount(trx.value, 18)
                 data['Received Currency'] = 'ETH'
 
         elif isinstance(trx, RawTokenTransfer):
             data['Description'] = 'token_transfer'
+            decimals = int(trx.tokenDecimal) if trx.tokenDecimal.isdigit() else 18
             if is_sender:
-                data['Sent Amount'] = trx.total.value
+                data['Sent Amount'] = scale_amount(trx.total.value, decimals)
                 data['Sent Currency'] = trx.token.symbol
             if is_receiver:
-                data['Received Amount'] = trx.total.value
+                data['Received Amount'] = scale_amount(trx.total.value, decimals)
                 data['Received Currency'] = trx.token.symbol
 
         extracted_data.append(Transaction.model_validate(data))
