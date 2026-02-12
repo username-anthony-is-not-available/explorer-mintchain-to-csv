@@ -135,8 +135,29 @@ def test_categorize_with_unknown_address():
     transaction = create_mock_raw_transaction("0xunknown")
     assert categorize_transaction(transaction, "mintchain") == "transfer"
 
-def test_categorize_as_bridge():
-    """Test that a transaction to a bridge contract is categorized as a bridge."""
+def test_categorize_as_bridge_l1():
+    """Test that a transaction to an L1 bridge contract is categorized as a bridge on etherscan."""
     bridge_address = "0x2b3f201543adf73160ba42e1a5b7750024f30420"
     transaction = create_mock_raw_transaction(bridge_address)
+    assert categorize_transaction(transaction, "etherscan") == "bridge"
+
+def test_categorize_as_bridge_l2():
+    """Test that a transaction to an L2 bridge contract is categorized as a bridge on mintchain."""
+    bridge_address = "0x4200000000000000000000000000000000000010"
+    transaction = create_mock_raw_transaction(bridge_address)
+    assert categorize_transaction(transaction, "mintchain") == "bridge"
+
+def test_categorize_as_bridge_incoming():
+    """Test that a transaction from a bridge contract is categorized as a bridge."""
+    bridge_address = "0x4200000000000000000000000000000000000010"
+    raw_trx_data = {
+        "hash": "0xbridge_incoming",
+        "timeStamp": "1672531200",
+        "from": {"hash": bridge_address},
+        "to": {"hash": "0xuser"},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    }
+    transaction = RawTransaction.model_validate(raw_trx_data)
     assert categorize_transaction(transaction, "mintchain") == "bridge"
