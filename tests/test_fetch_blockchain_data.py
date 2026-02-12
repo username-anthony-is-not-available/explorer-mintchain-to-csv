@@ -35,7 +35,7 @@ def mocked_responses():
 def test_adapter_get_transactions_success(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -62,7 +62,7 @@ def test_adapter_get_transactions_success(mocked_responses):
 def test_adapter_get_transactions_failure(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(responses.GET, mock_url, status=500)
     transactions = adapter.get_transactions(WALLET_ADDRESS)
     assert len(transactions) == 0
@@ -71,7 +71,7 @@ def test_adapter_get_transactions_failure(mocked_responses):
 def test_adapter_get_transactions_validation_error(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -85,7 +85,7 @@ def test_adapter_get_transactions_validation_error(mocked_responses):
 def test_adapter_get_transactions_malformed_response(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -99,7 +99,7 @@ def test_adapter_get_transactions_malformed_response(mocked_responses):
 def test_adapter_get_token_transfers_success(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=tokentx&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=tokentx&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -126,7 +126,7 @@ def test_adapter_get_token_transfers_success(mocked_responses):
 def test_adapter_get_internal_transactions_success(mocked_responses):
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
     mocked_responses.add(
         responses.GET,
         mock_url,
@@ -155,7 +155,7 @@ def test_fetch_data_retry_logic(mock_get, caplog):
     # Configure the mock to raise a RequestException 5 times
     mock_get.side_effect = RequestException("Test Exception")
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
 
     with caplog.at_level(logging.ERROR):
         result = fetch_data(mock_url, RawTransaction)
@@ -175,7 +175,7 @@ def test_fetch_data_retry_logic(mock_get, caplog):
 def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
     # Configure the mock to return a 429 error with a Retry-After header
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
 
     # Mock the first 4 calls to fail with a 429, and the 5th to also fail
     for _ in range(5):
@@ -214,7 +214,7 @@ def test_fetch_data_retry_on_server_error(mock_get, caplog):
     mock_get.return_value = mock_response
 
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
 
     with caplog.at_level(logging.ERROR):
         result = fetch_data(mock_url, RawTransaction)
@@ -255,7 +255,7 @@ def test_fetch_data_retry_on_request_exception(mock_get):
         ),
     ]
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
 
     # Call the function
     result = fetch_data(mock_url, RawTransaction)
@@ -283,7 +283,7 @@ def test_adapter_with_api_key(mocked_responses, monkeypatch, chain):
     monkeypatch.setenv(api_key_env_var, test_api_key)
 
     base_url = EXPLORER_URLS[chain]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&apikey={test_api_key}"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1&apikey={test_api_key}"
 
     mocked_responses.add(
         responses.GET,
@@ -323,7 +323,7 @@ def test_adapter_without_api_key(mocked_responses, monkeypatch, chain):
     monkeypatch.delenv(api_key_env_var, raising=False)
 
     base_url = EXPLORER_URLS[chain]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&offset=10000&sort=asc&page=1"
 
     mocked_responses.add(
         responses.GET,
@@ -539,4 +539,28 @@ def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
 
     # Assert
     assert result == []
-    assert f"API response for {DUMMY_ENDPOINT} does not contain a list in 'result'" in caplog.text
+    assert f"API error for {DUMMY_ENDPOINT}: Error. Result: Invalid API key" in caplog.text
+
+@patch('fetch_blockchain_data.requests.get')
+def test_fetch_data_handles_no_transactions_found(mock_get, caplog):
+    """
+    Verify that fetch_data returns an empty list and does NOT log an error
+    when the API returns "No transactions found".
+    """
+    # Arrange
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "status": "0",
+        "message": "No transactions found",
+        "result": []
+    }
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
+
+    # Act
+    with caplog.at_level(logging.ERROR):
+        result = fetch_data(DUMMY_ENDPOINT, RawTransaction)
+
+    # Assert
+    assert result == []
+    assert "API error" not in caplog.text

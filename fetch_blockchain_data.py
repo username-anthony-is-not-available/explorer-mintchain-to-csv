@@ -45,7 +45,19 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         response.raise_for_status()
         data = response.json()
 
+        status = data.get('status')
+        message = data.get('message')
         result_list = data.get('result')
+
+        # Handle Etherscan-like "No transactions found" response
+        if status == '0' and message == 'No transactions found':
+            return []
+
+        # Handle other API errors that return 200 OK but status '0'
+        if status == '0':
+            logging.error(f"API error for {endpoint}: {message}. Result: {result_list}")
+            return []
+
         if not isinstance(result_list, list):
             logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")
             return []
