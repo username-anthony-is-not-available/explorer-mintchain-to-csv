@@ -45,6 +45,10 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         response.raise_for_status()
         data = response.json()
 
+        # Handle Etherscan-style empty responses gracefully
+        if data.get('status') == '0' and data.get('message') == 'No transactions found':
+            return []
+
         result_list = data.get('result')
         if not isinstance(result_list, list):
             logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")

@@ -16,7 +16,7 @@ def test_cli_json_output(responses):
     # Mock the API calls for normal transactions and token transactions
     responses.add(
         responses.GET,
-        f"{MINTCHAIN_API_URL}?module=account&action=txlist&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        f"{MINTCHAIN_API_URL}?module=account&action=txlist&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&page=1&offset=10000",
         json={
             "result": [
                 {
@@ -44,13 +44,13 @@ def test_cli_json_output(responses):
     )
     responses.add(
         responses.GET,
-        f"{MINTCHAIN_API_URL}?module=account&action=tokentx&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        f"{MINTCHAIN_API_URL}?module=account&action=tokentx&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&page=1&offset=10000",
         json={"result": []},
         status=200,
     )
     responses.add(
         responses.GET,
-        f"{MINTCHAIN_API_URL}?module=account&action=txlistinternal&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc",
+        f"{MINTCHAIN_API_URL}?module=account&action=txlistinternal&address={TEST_WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&page=1&offset=10000",
         json={"result": []},
         status=200,
     )
