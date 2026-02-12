@@ -48,6 +48,20 @@ def test_write_transaction_data_to_koinly_csv_mintchain(mock_makedirs: MagicMock
             'Label': 'staking',
             'Description': 'transaction',
             'TxHash': '0x789'
+        },
+        {
+            'Date': '1672531203',
+            'Sent Amount': '1',
+            'Sent Currency': 'ETH',
+            'Received Amount': '',
+            'Received Currency': '',
+            'Fee Amount': '0.001',
+            'Fee Currency': 'ETH',
+            'Net Worth Amount': '',
+            'Net Worth Currency': '',
+            'Label': 'bridge',
+            'Description': 'transaction',
+            'TxHash': '0xabc'
         }
     ]
 
@@ -55,6 +69,7 @@ def test_write_transaction_data_to_koinly_csv_mintchain(mock_makedirs: MagicMock
         {**transaction_data[0], 'Label': ''},
         {**transaction_data[1], 'Label': ''},
         {**transaction_data[2], 'Label': 'staking'},
+        {**transaction_data[3], 'Label': 'Bridge'},
     ]
 
     with patch('builtins.open', new_callable=MagicMock) as mock_open:
