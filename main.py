@@ -2,6 +2,7 @@ import argparse
 import csv
 import logging
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -64,6 +65,13 @@ class Args(BaseModel):
             raise ValueError("No wallet addresses provided. Use --wallet, --address-file, or set WALLET_ADDRESS/WALLET_ADDRESSES in your .env file.")
         return self
 
+def is_valid_evm_address(address: str) -> bool:
+    """
+    Checks if a string is a valid EVM address.
+    """
+    return bool(re.match(r'^0x[0-9a-fA-F]{40}$', address))
+
+
 def combine_and_sort_transactions(
     transactions: List[Transaction],
     token_transfers: List[Transaction],
@@ -92,21 +100,20 @@ def get_addresses_from_file(file_path: str) -> List[str]:
                 for row in reader:
                     for cell in row:
                         clean_cell = cell.strip()
-                        # Simple EVM address check: starts with 0x and length 42
-                        if clean_cell.startswith('0x') and len(clean_cell) == 42:
+                        if is_valid_evm_address(clean_cell):
                             addresses.append(clean_cell)
             else:
                 # Treat as TXT, one address per line
                 for line in f:
                     clean_line = line.strip()
-                    if clean_line.startswith('0x') and len(clean_line) == 42:
+                    if is_valid_evm_address(clean_line):
                         addresses.append(clean_line)
                     elif clean_line:
                         # Fallback for lines that might not be perfectly formatted
                         # but could contain an address
                         parts = clean_line.split()
                         for part in parts:
-                            if part.startswith('0x') and len(part) == 42:
+                            if is_valid_evm_address(part):
                                 addresses.append(part)
     except Exception as e:
         logging.error(f"Error reading address file {file_path}: {e}")
@@ -223,6 +230,9 @@ def process_batch_transactions(
     """
     Processes multiple wallet addresses concurrently.
     """
+    total = len(addresses)
+    logging.info(f"Starting batch process for {total} wallet(s) on {chain}...")
+
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
             executor.submit(
@@ -281,13 +291,18 @@ def main() -> None:
     # Fallback to environment variables if no addresses are provided via arguments
     if not wallet_addresses:
         env_addresses = os.getenv('WALLET_ADDRESSES')
-        if env_addresses:
+        if env_addresses is not None:
             wallet_addresses.extend([addr.strip() for addr in env_addresses.split(',') if addr.strip()])
-        elif os.getenv('WALLET_ADDRESS'):
-            wallet_addresses.append(os.getenv('WALLET_ADDRESS').strip())
+        else:
+            env_wallet = os.getenv('WALLET_ADDRESS')
+            if env_wallet is not None:
+                wallet_addresses.append(env_wallet.strip())
 
     # Ensure there are unique addresses to process (lowercased for deduplication)
-    unique_addresses = sorted(list(set(addr.lower() for addr in wallet_addresses if addr)))
+    unique_addresses = sorted(list(set(
+        addr.lower() for addr in wallet_addresses
+        if addr and is_valid_evm_address(addr)
+    )))
 
     if not unique_addresses:
         logging.error(

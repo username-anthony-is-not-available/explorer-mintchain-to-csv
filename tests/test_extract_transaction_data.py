@@ -42,6 +42,30 @@ def test_extract_transaction_data_regular_transaction_received():
     assert trx.sent_amount is None
     assert trx.fee_amount is None
 
+def test_extract_transaction_data_fee_precision():
+    # Test case with very small gas price to check for precision issues
+    raw_trx_data = {
+        "hash": "0xabc",
+        "from": {"hash": WALLET_ADDRESS},
+        "to": {"hash": "0x456"},
+        "value": "1000000000000000000",
+        "timeStamp": "1672531200",
+        "gasUsed": "21000",
+        "gasPrice": "1" # 1 wei
+    }
+    raw_trx = RawTransaction.model_validate(raw_trx_data)
+    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
+    assert transactions[0].fee_amount == "0.000000000000021"
+
+    # Test case with large values
+    raw_trx_data["gasPrice"] = "1234567890"
+    raw_trx_data["gasUsed"] = "500000"
+    raw_trx = RawTransaction.model_validate(raw_trx_data)
+    transactions = extract_transaction_data([raw_trx], "transaction", WALLET_ADDRESS, "mintchain")
+    # 1234567890 * 500000 = 617,283,945,000,000
+    # 617,283,945,000,000 / 1e18 = 0.000617283945
+    assert transactions[0].fee_amount == "0.000617283945"
+
 def test_extract_transaction_data_token_transfer_sent():
     raw_token_trx_data = {
         "hash": "0xdef",

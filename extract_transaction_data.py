@@ -48,7 +48,8 @@ def extract_transaction_data(
             if is_sender:
                 data['Sent Amount'] = scale_amount(trx.value, 18)
                 data['Sent Currency'] = 'ETH'
-                data['Fee Amount'] = f"{(int(trx.gasUsed) * int(trx.gasPrice)) / 1e18:.6f}"
+                fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
+                data['Fee Amount'] = scale_amount(fee_value, 18)
                 data['Fee Currency'] = 'ETH'
             if is_receiver:
                 data['Received Amount'] = scale_amount(trx.value, 18)
