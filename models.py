@@ -30,7 +30,7 @@ class RawTransaction(BaseModel):
     to_address: Address = Field(..., alias='to')
     value: str
     gasUsed: str
-    gasPrice: str
+    gasPrice: Optional[str] = None
 
 class RawTokenTransfer(BaseModel):
     hash: str
@@ -43,6 +43,7 @@ class RawTokenTransfer(BaseModel):
 
 class Transaction(BaseModel):
     date: str = Field(..., alias='Date')
+    timestamp: int = Field(..., exclude=True)
     sent_amount: Optional[str] = Field(None, alias='Sent Amount')
     sent_currency: Optional[str] = Field(None, alias='Sent Currency')
     received_amount: Optional[str] = Field(None, alias='Received Amount')

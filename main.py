@@ -21,6 +21,8 @@ from explorer_adapters import (
     EtherscanAdapter,
     ExplorerAdapter,
     MintchainAdapter,
+    OptimismAdapter,
+    PolygonAdapter,
 )
 from json_writer import write_transaction_data_to_json
 from koinly_writer import write_transaction_data_to_koinly_csv
@@ -39,6 +41,8 @@ ADAPTERS: Dict[str, Type[ExplorerAdapter]] = {
     'etherscan': EtherscanAdapter,
     'basescan': BasescanAdapter,
     'arbiscan': ArbiscanAdapter,
+    'optimism': OptimismAdapter,
+    'polygon': PolygonAdapter,
 }
 
 class Args(BaseModel):
@@ -80,9 +84,9 @@ def combine_and_sort_transactions(
     # Combine all transactions into one list
     all_transactions: List[Transaction] = transactions + token_transfers + internal_transactions
 
-    # Convert the 'timestamp' field into a datetime object and sort by date
+    # Sort by the 'timestamp' field
     all_transactions_sorted: List[Transaction] = sorted(
-        all_transactions, key=lambda trx: int(trx.date)
+        all_transactions, key=lambda trx: trx.timestamp
     )
 
     return all_transactions_sorted
@@ -160,7 +164,7 @@ def process_transactions(
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.fromtimestamp(int(trx.date)) >= start_date
+            if datetime.fromtimestamp(trx.timestamp) >= start_date
         ]
     if end_date_str:
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(
@@ -168,7 +172,7 @@ def process_transactions(
         )
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.fromtimestamp(int(trx.date)) <= end_date
+            if datetime.fromtimestamp(trx.timestamp) <= end_date
         ]
 
     return all_sorted_transactions
@@ -311,7 +315,7 @@ def main() -> None:
         )
         return
 
-    # Process all wallet addresses in batch (sequentially)
+    # Process all wallet addresses in batch (concurrently)
     process_batch_transactions(
         unique_addresses,
         validated_args.chain,
