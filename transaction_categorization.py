@@ -22,9 +22,13 @@ DEFI_ROUTERS = {
 }
 
 BRIDGE_CONTRACTS = {
+    "etherscan": {
+        "0x2b3f201543adf73160ba42e1a5b7750024f30420",  # MintChain L1StandardBridge
+        "0xc2c908f3226d9082130d8e48378cd2efb08b521d",  # MintChain L1ERC721Bridge
+    },
     "mintchain": {
-        "0x2b3f201543adf73160ba42e1a5b7750024f30420",  # L1StandardBridge
-        "0xc2c908f3226d9082130d8e48378cd2efb08b521d",  # L1ERC721Bridge
+        "0x4200000000000000000000000000000000000010",  # L2StandardBridge
+        "0x4200000000000000000000000000000000000014",  # L2ERC721Bridge
     }
 }
 
@@ -50,8 +54,7 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
 
     if to_address in chain_routers:
         return TransactionType.SWAP.value
-    
-    if to_address in chain_bridge_contracts:
+    if to_address in chain_bridge_contracts or from_address in chain_bridge_contracts:
         return TransactionType.BRIDGE.value
 
     # Placeholder for staking detection
