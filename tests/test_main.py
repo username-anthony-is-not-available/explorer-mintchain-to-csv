@@ -72,28 +72,28 @@ def test_date_range_filtering(mock_adapter):
     # Test with a start date
     transactions = process_transactions("test_wallet", CHAIN, start_date_str="2023-02-01")
     assert len(transactions) == 2
-    assert transactions[0].date == "1676894400"
+    assert transactions[0].timestamp == 1676894400
 
     # Test with an end date
     transactions = process_transactions("test_wallet", CHAIN, end_date_str="2023-02-28")
     assert len(transactions) == 2
-    assert transactions[1].date == "1676894400"
+    assert transactions[1].timestamp == 1676894400
 
     # Test with both a start and end date
     transactions = process_transactions(
         "test_wallet", CHAIN, start_date_str="2023-01-01", end_date_str="2023-01-31"
     )
     assert len(transactions) == 1
-    assert transactions[0].date == "1673784000"
+    assert transactions[0].timestamp == 1673784000
 
 
 def test_combine_and_sort_transactions():
     transactions = [
-        Transaction.model_validate({"Date": "1679745600", "Description": "tx3", "TxHash": "0x3"}),
-        Transaction.model_validate({"Date": "1673784000", "Description": "tx1", "TxHash": "0x1"}),
+        Transaction.model_validate({"Date": "2023-03-25 12:00:00 UTC", "timestamp": 1679745600, "Description": "tx3", "TxHash": "0x3"}),
+        Transaction.model_validate({"Date": "2023-01-15 12:00:00 UTC", "timestamp": 1673784000, "Description": "tx1", "TxHash": "0x1"}),
     ]
     token_transfers = [
-        Transaction.model_validate({"Date": "1676894400", "Description": "tx2", "TxHash": "0x2"})
+        Transaction.model_validate({"Date": "2023-02-20 12:00:00 UTC", "timestamp": 1676894400, "Description": "tx2", "TxHash": "0x2"})
     ]
     internal_transactions = []
 
@@ -134,7 +134,7 @@ def test_main_csv_output_with_wallet_arg(
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
-        Transaction.model_validate({"Date": "1", "Description": "test", "TxHash": "0x1"})
+        Transaction.model_validate({"Date": "2023-01-01 00:00:01 UTC", "timestamp": 1, "Description": "test", "TxHash": "0x1"})
     ]
 
     main()
@@ -144,7 +144,7 @@ def test_main_csv_output_with_wallet_arg(
         f"output/{addr}_transactions.csv",
         [
             {
-                "Date": "1",
+                "Date": "2023-01-01 00:00:01 UTC",
                 "Sent Amount": None,
                 "Sent Currency": None,
                 "Received Amount": None,
@@ -177,7 +177,7 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
-        Transaction.model_validate({"Date": "1", "Description": "test", "TxHash": "0x1"})
+        Transaction.model_validate({"Date": "2023-01-01 00:00:01 UTC", "timestamp": 1, "Description": "test", "TxHash": "0x1"})
     ]
 
     main()
@@ -187,7 +187,7 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
         f"output/{addr}_transactions.json",
         [
             {
-                "Date": "1",
+                "Date": "2023-01-01 00:00:01 UTC",
                 "Sent Amount": None,
                 "Sent Currency": None,
                 "Received Amount": None,
@@ -219,7 +219,7 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
-        Transaction.model_validate({"Date": "1", "Description": "test", "TxHash": "0x1"})
+        Transaction.model_validate({"Date": "2023-01-01 00:00:01 UTC", "timestamp": 1, "Description": "test", "TxHash": "0x1"})
     ]
 
     main()
@@ -229,7 +229,7 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
         f"output/{addr}_transactions.csv",
         [
             {
-                "Date": "1",
+                "Date": "2023-01-01 00:00:01 UTC",
                 "Sent Amount": None,
                 "Sent Currency": None,
                 "Received Amount": None,
@@ -244,3 +244,24 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
             }
         ],
     )
+
+@patch("main.process_transactions")
+def test_process_transactions_polygon(mock_process_tx):
+    """
+    Ensures that process_transactions can be called with the new polygon chain.
+    """
+    mock_process_tx.return_value = []
+    from main import process_batch_transactions
+    process_batch_transactions(["0x123"], "polygon", "csv")
+    mock_process_tx.assert_called_with("0x123", "polygon", None, None)
+
+
+@patch("main.process_transactions")
+def test_process_transactions_optimism(mock_process_tx):
+    """
+    Ensures that process_transactions can be called with the new optimism chain.
+    """
+    mock_process_tx.return_value = []
+    from main import process_batch_transactions
+    process_batch_transactions(["0x456"], "optimism", "csv")
+    mock_process_tx.assert_called_with("0x456", "optimism", None, None)

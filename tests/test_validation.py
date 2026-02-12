@@ -44,12 +44,26 @@ def test_raw_token_transfer_model():
 
 def test_transaction_model():
     data = {
-        "Date": "1234567890",
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1234567890,
         "Description": "test",
         "TxHash": "0xghi"
     }
     trx = Transaction.model_validate(data)
-    assert trx.date == "1234567890"
+    assert trx.date == "2023-01-01 00:00:00 UTC"
+    assert trx.timestamp == 1234567890
+
+def test_raw_transaction_no_gas_price():
+    data = {
+        "hash": "0xabc",
+        "timeStamp": "1234567890",
+        "from": {"hash": "0xfrom"},
+        "to": {"hash": "0xto"},
+        "value": "1000",
+        "gasUsed": "21000"
+    }
+    trx = RawTransaction.model_validate(data)
+    assert trx.gasPrice is None
 
 def test_invalid_raw_transaction():
     with pytest.raises(ValidationError):

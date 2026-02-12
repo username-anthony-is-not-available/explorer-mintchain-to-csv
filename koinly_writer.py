@@ -8,6 +8,8 @@ KOINLY_LABEL_MAP = {
     TransactionType.AIRDROP.value: "airdrop",
     TransactionType.MINING.value: "mining",
     TransactionType.BRIDGE.value: "Bridge",
+    TransactionType.MINT.value: "reward",
+    TransactionType.BURN.value: "lost",
 }
 
 MINTCHAIN_LABEL_MAP = {
