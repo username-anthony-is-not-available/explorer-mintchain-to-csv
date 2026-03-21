@@ -1,5 +1,7 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Sequence, Union
+from config import NATIVE_CURRENCIES
 from models import RawTokenTransfer, RawTransaction, Transaction
 from transaction_categorization import categorize_transaction
 
@@ -16,6 +18,11 @@ def scale_amount(amount: str, decimals: int) -> str:
         formatted = formatted.rstrip('0').rstrip('.')
     return formatted if formatted != "" else "0"
 
+def format_timestamp(ts: str) -> str:
+    """Formats a unix timestamp into a Koinly-compatible date string."""
+    dt = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+    return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+
 def extract_transaction_data(
     transaction_data: Sequence[AnyRawTransaction],
     transaction_type: str,
@@ -29,7 +36,8 @@ def extract_transaction_data(
         is_receiver = trx.to_address.hash.lower() == wallet_address.lower()
 
         data = {
-            'Date': trx.timeStamp,
+            'Date': format_timestamp(trx.timeStamp),
+            'timestamp': int(trx.timeStamp),
             'TxHash': trx.hash,
             'Description': '',
             'Sent Amount': None,
@@ -43,17 +51,19 @@ def extract_transaction_data(
             'Label': categorize_transaction(trx, chain),
         }
 
+        native_currency = NATIVE_CURRENCIES.get(chain, 'ETH')
         if isinstance(trx, RawTransaction):
             data['Description'] = 'internal' if transaction_type == 'internal_transaction' else 'transaction'
             if is_sender:
                 data['Sent Amount'] = scale_amount(trx.value, 18)
-                data['Sent Currency'] = 'ETH'
-                fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
-                data['Fee Amount'] = scale_amount(fee_value, 18)
-                data['Fee Currency'] = 'ETH'
+                data['Sent Currency'] = native_currency
+                if trx.gasPrice:
+                    fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
+                    data['Fee Amount'] = scale_amount(fee_value, 18)
+                    data['Fee Currency'] = native_currency
             if is_receiver:
                 data['Received Amount'] = scale_amount(trx.value, 18)
-                data['Received Currency'] = 'ETH'
+                data['Received Currency'] = native_currency
 
         elif isinstance(trx, RawTokenTransfer):
             data['Description'] = 'token_transfer'

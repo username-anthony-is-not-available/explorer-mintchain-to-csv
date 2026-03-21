@@ -107,3 +107,11 @@ class ArbiscanAdapter(EtherscanAdapter):
 
 class MintchainAdapter(EtherscanAdapter):
     pass
+
+
+class OptimismAdapter(EtherscanAdapter):
+    pass
+
+
+class PolygonAdapter(EtherscanAdapter):
+    pass
