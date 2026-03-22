@@ -16,6 +16,9 @@ from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
 
+# Global session for connection pooling
+session = requests.Session()
+
 
 def wait_retry_after_or_exponential(retry_state):
     """
@@ -55,7 +58,7 @@ def _log_and_return_empty(retry_state):
 )
 def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
     try:
-        response = requests.get(endpoint, timeout=TIMEOUT)
+        response = session.get(endpoint, timeout=TIMEOUT)
         response.raise_for_status()
         data = response.json()
 

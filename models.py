@@ -41,6 +41,26 @@ class RawTokenTransfer(BaseModel):
     token: Token
     tokenDecimal: str
 
+class RawNFTTransfer(BaseModel):
+    hash: str
+    timeStamp: str
+    from_address: Address = Field(..., alias='from')
+    to_address: Address = Field(..., alias='to')
+    tokenID: str
+    tokenName: str
+    tokenSymbol: str
+    tokenDecimal: str
+
+class Raw1155Transfer(BaseModel):
+    hash: str
+    timeStamp: str
+    from_address: Address = Field(..., alias='from')
+    to_address: Address = Field(..., alias='to')
+    tokenID: str
+    tokenName: str
+    tokenSymbol: str
+    tokenValue: str
+
 class Transaction(BaseModel):
     date: str = Field(..., alias='Date')
     timestamp: int = Field(..., exclude=True)

@@ -1,5 +1,5 @@
 from typing import Union
-from models import RawTokenTransfer, RawTransaction, TransactionType
+from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction, TransactionType
 
 # A sample list of DeFi router addresses, organized by chain
 DEFI_ROUTERS = {
@@ -36,7 +36,7 @@ BRIDGE_CONTRACTS = {
     }
 }
 
-AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
+AnyRawTransaction = Union[RawTransaction, RawTokenTransfer, RawNFTTransfer, Raw1155Transfer]
 
 def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintchain') -> str:
     """
@@ -70,9 +70,9 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
        to_address == "0x000000000000000000000000000000000000dead":
         return TransactionType.BURN.value
 
-    if isinstance(transaction, RawTokenTransfer):
-        # ERC-721 NFTs typically have 0 decimals.
-        if hasattr(transaction, 'tokenDecimal') and transaction.tokenDecimal == '0':
+    if isinstance(transaction, (RawTokenTransfer, RawNFTTransfer, Raw1155Transfer)):
+        if isinstance(transaction, RawNFTTransfer) or \
+           (isinstance(transaction, RawTokenTransfer) and getattr(transaction, 'tokenDecimal', None) == '0'):
             return TransactionType.NFT_TRANSFER.value
         return TransactionType.TOKEN_TRANSFER.value
 
