@@ -19,6 +19,9 @@ from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
 
+# Global session for connection pooling
+session = requests.Session()
+
 
 def wait_retry_after_or_exponential(retry_state):
     """

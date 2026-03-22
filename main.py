@@ -34,17 +34,22 @@ from config import EXPLORER_URLS
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, stream=sys.stderr, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stderr,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 # Adapter mapping
 ADAPTERS: Dict[str, Type[ExplorerAdapter]] = {
-    'mintchain': MintchainAdapter,
-    'etherscan': EtherscanAdapter,
-    'basescan': BasescanAdapter,
-    'arbiscan': ArbiscanAdapter,
-    'optimism': OptimismAdapter,
-    'polygon': PolygonAdapter,
+    "mintchain": MintchainAdapter,
+    "etherscan": EtherscanAdapter,
+    "basescan": BasescanAdapter,
+    "arbiscan": ArbiscanAdapter,
+    "optimism": OptimismAdapter,
+    "polygon": PolygonAdapter,
 }
+
 
 class Args(BaseModel):
     wallet: Optional[str] = None
@@ -52,38 +57,48 @@ class Args(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     format: str
-    chain: str = 'mintchain'
+    chain: str = "mintchain"
 
-    @field_validator('start_date', 'end_date')
+    @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
         if v is None:
             return v
         try:
-            datetime.strptime(v, '%Y-%m-%d')
+            datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             raise ValueError("Incorrect date format, should be YYYY-MM-DD")
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_at_least_one_address_source(self):
-        if not self.wallet and not self.address_file and not os.getenv('WALLET_ADDRESS') and not os.getenv('WALLET_ADDRESSES'):
-            raise ValueError("No wallet addresses provided. Use --wallet, --address-file, or set WALLET_ADDRESS/WALLET_ADDRESSES in your .env file.")
+        if (
+            not self.wallet
+            and not self.address_file
+            and not os.getenv("WALLET_ADDRESS")
+            and not os.getenv("WALLET_ADDRESSES")
+        ):
+            raise ValueError(
+                "No wallet addresses provided. Use --wallet, --address-file, or set WALLET_ADDRESS/WALLET_ADDRESSES in your .env file."
+            )
         return self
+
 
 def is_valid_evm_address(address: str) -> bool:
     """
     Checks if a string is a valid EVM address.
     """
-    return bool(re.match(r'^0x[0-9a-fA-F]{40}$', address))
+    return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))
 
 
 def combine_and_sort_transactions(
     transactions: List[Transaction],
     token_transfers: List[Transaction],
-    internal_transactions: List[Transaction]
+    internal_transactions: List[Transaction],
 ) -> List[Transaction]:
     # Combine all transactions into one list
-    all_transactions: List[Transaction] = transactions + token_transfers + internal_transactions
+    all_transactions: List[Transaction] = (
+        transactions + token_transfers + internal_transactions
+    )
 
     # Sort by the 'timestamp' field
     all_transactions_sorted: List[Transaction] = sorted(
@@ -115,11 +130,19 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
             can_merge_received = False
 
             # Sent amount merge logic
-            if not tx.sent_amount or not existing_tx.sent_amount or tx.sent_currency == existing_tx.sent_currency:
+            if (
+                not tx.sent_amount
+                or not existing_tx.sent_amount
+                or tx.sent_currency == existing_tx.sent_currency
+            ):
                 can_merge_sent = True
 
             # Received amount merge logic
-            if not tx.received_amount or not existing_tx.received_amount or tx.received_currency == existing_tx.received_currency:
+            if (
+                not tx.received_amount
+                or not existing_tx.received_amount
+                or tx.received_currency == existing_tx.received_currency
+            ):
                 can_merge_received = True
 
             if can_merge_sent and can_merge_received:
@@ -127,11 +150,15 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
                 if tx.sent_amount:
                     if existing_tx.sent_amount:
                         try:
-                            new_amount = Decimal(existing_tx.sent_amount) + Decimal(tx.sent_amount)
-                            formatted = format(new_amount, 'f')
-                            if '.' in formatted:
-                                formatted = formatted.rstrip('0').rstrip('.')
-                            existing_tx.sent_amount = formatted if formatted != "" else "0"
+                            new_amount = Decimal(existing_tx.sent_amount) + Decimal(
+                                tx.sent_amount
+                            )
+                            formatted = format(new_amount, "f")
+                            if "." in formatted:
+                                formatted = formatted.rstrip("0").rstrip(".")
+                            existing_tx.sent_amount = (
+                                formatted if formatted != "" else "0"
+                            )
                         except (ValueError, ArithmeticError):
                             pass
                     else:
@@ -141,11 +168,15 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
                 if tx.received_amount:
                     if existing_tx.received_amount:
                         try:
-                            new_amount = Decimal(existing_tx.received_amount) + Decimal(tx.received_amount)
-                            formatted = format(new_amount, 'f')
-                            if '.' in formatted:
-                                formatted = formatted.rstrip('0').rstrip('.')
-                            existing_tx.received_amount = formatted if formatted != "" else "0"
+                            new_amount = Decimal(existing_tx.received_amount) + Decimal(
+                                tx.received_amount
+                            )
+                            formatted = format(new_amount, "f")
+                            if "." in formatted:
+                                formatted = formatted.rstrip("0").rstrip(".")
+                            existing_tx.received_amount = (
+                                formatted if formatted != "" else "0"
+                            )
                         except (ValueError, ArithmeticError):
                             pass
                     else:
@@ -158,14 +189,18 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
                     existing_tx.fee_currency = tx.fee_currency
 
                 # Combine Labels (prioritize more specific labels)
-                if tx.label and tx.label not in ['', 'transfer', 'token_transfer']:
+                if tx.label and tx.label not in ["", "transfer", "token_transfer"]:
                     existing_tx.label = tx.label
 
                 # Combine descriptions
                 if tx.description:
                     existing_desc = existing_tx.description or ""
                     if tx.description not in existing_desc:
-                        existing_tx.description = f"{existing_desc}, {tx.description}" if existing_desc else tx.description
+                        existing_tx.description = (
+                            f"{existing_desc}, {tx.description}"
+                            if existing_desc
+                            else tx.description
+                        )
 
                 merged_successfully = True
                 break
@@ -187,8 +222,8 @@ def get_addresses_from_file(file_path: str) -> List[str]:
     """
     addresses = []
     try:
-        with open(file_path, 'r', newline='') as f:
-            if file_path.endswith('.csv'):
+        with open(file_path, "r", newline="") as f:
+            if file_path.endswith(".csv"):
                 reader = csv.reader(f)
                 for row in reader:
                     for cell in row:
@@ -217,7 +252,7 @@ def process_transactions(
     wallet_address: str,
     chain: str,
     start_date_str: Optional[str] = None,
-    end_date_str: Optional[str] = None
+    end_date_str: Optional[str] = None,
 ) -> List[Transaction]:
     # Get the adapter for the selected chain
     adapter_class = ADAPTERS.get(chain)
@@ -229,20 +264,38 @@ def process_transactions(
     end_block = 99999999
 
     if start_date_str:
-        start_ts = int(datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+        start_ts = int(
+            datetime.strptime(start_date_str, "%Y-%m-%d")
+            .replace(tzinfo=timezone.utc)
+            .timestamp()
+        )
         start_block = adapter.get_block_number_by_timestamp(start_ts, "after")
 
     if end_date_str:
-        end_ts = int(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, tzinfo=timezone.utc).timestamp())
+        end_ts = int(
+            datetime.strptime(end_date_str, "%Y-%m-%d")
+            .replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            .timestamp()
+        )
         end_block = adapter.get_block_number_by_timestamp(end_ts, "before")
 
     # Fetch transactions concurrently
     with ThreadPoolExecutor(max_workers=5) as executor:
-        future_tx = executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)
-        future_token = executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)
-        future_internal = executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)
-        future_nft = executor.submit(adapter.get_nft_transfers, wallet_address, start_block, end_block)
-        future_1155 = executor.submit(adapter.get_1155_transfers, wallet_address, start_block, end_block)
+        future_tx = executor.submit(
+            adapter.get_transactions, wallet_address, start_block, end_block
+        )
+        future_token = executor.submit(
+            adapter.get_token_transfers, wallet_address, start_block, end_block
+        )
+        future_internal = executor.submit(
+            adapter.get_internal_transactions, wallet_address, start_block, end_block
+        )
+        future_nft = executor.submit(
+            adapter.get_nft_transfers, wallet_address, start_block, end_block
+        )
+        future_1155 = executor.submit(
+            adapter.get_1155_transfers, wallet_address, start_block, end_block
+        )
 
         transactions = future_tx.result()
         token_transfers = future_token.result()
@@ -252,44 +305,50 @@ def process_transactions(
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
-        transactions, 'transaction', wallet_address, chain
+        transactions, "transaction", wallet_address, chain
     )
     extracted_token_transfers = extract_transaction_data(
-        token_transfers, 'token_transfers', wallet_address, chain
+        token_transfers, "token_transfers", wallet_address, chain
     )
     extracted_internal_transactions = extract_transaction_data(
-        internal_transactions, 'internal_transaction', wallet_address, chain
+        internal_transactions, "internal_transaction", wallet_address, chain
     )
     extracted_nft_transfers = extract_transaction_data(
-        nft_transfers, 'nft_transfer', wallet_address, chain
+        nft_transfers, "nft_transfer", wallet_address, chain
     )
     extracted_1155_transfers = extract_transaction_data(
-        _1155_transfers, '1155_transfer', wallet_address, chain
+        _1155_transfers, "1155_transfer", wallet_address, chain
     )
 
     # Combine and sort all transactions by date
     all_combined_transactions = combine_and_sort_transactions(
-        extracted_regular_transactions + extracted_nft_transfers + extracted_1155_transfers,
+        extracted_regular_transactions,
         extracted_token_transfers,
-        extracted_internal_transactions
+        extracted_internal_transactions,
     )
+    all_combined_transactions.extend(extracted_nft_transfers)
+    all_combined_transactions.extend(extracted_1155_transfers)
 
     # Merge transactions by hash
     all_sorted_transactions = merge_transactions_by_hash(all_combined_transactions)
 
     # Filter transactions by date range if provided (as a secondary check)
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
         all_sorted_transactions = [
-            trx for trx in all_sorted_transactions
+            trx
+            for trx in all_sorted_transactions
             if datetime.fromtimestamp(trx.timestamp, tz=timezone.utc) >= start_date
         ]
     if end_date_str:
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").replace(
             hour=23, minute=59, second=59, tzinfo=timezone.utc
         )
         all_sorted_transactions = [
-            trx for trx in all_sorted_transactions
+            trx
+            for trx in all_sorted_transactions
             if datetime.fromtimestamp(trx.timestamp, tz=timezone.utc) <= end_date
         ]
 
@@ -303,39 +362,38 @@ def process_single_wallet(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     index: int = 0,
-    total_count: int = 1
+    total_count: int = 1,
 ) -> None:
     """
     Processes a single wallet address.
     """
     try:
         all_sorted_transactions = process_transactions(
-            wallet_address,
-            chain,
-            start_date,
-            end_date
+            wallet_address, chain, start_date, end_date
         )
 
         # Convert Pydantic models to dictionaries for writers
         output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
 
         # Define the output path based on the format
-        output_file = f'output/{wallet_address}_transactions.{output_format}'
+        output_file = f"output/{wallet_address}_transactions.{output_format}"
 
         # Write the data to the selected format
-        if output_format == 'csv':
+        if output_format == "csv":
             write_transaction_data_to_csv(output_file, output_data)
-        elif output_format == 'json':
+        elif output_format == "json":
             write_transaction_data_to_json(output_file, output_data)
-        elif output_format == 'cointracker':
+        elif output_format == "cointracker":
             write_transaction_data_to_cointracker_csv(output_file, output_data)
-        elif output_format == 'cryptotaxcalculator':
+        elif output_format == "cryptotaxcalculator":
             write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-        elif output_format == 'koinly':
+        elif output_format == "koinly":
             write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
 
-        logging.info(f"({index + 1}/{total_count}) "
-                     f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}")
+        logging.info(
+            f"({index + 1}/{total_count}) "
+            f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}"
+        )
 
     except Exception as e:
         logging.error(f"Failed to process address {wallet_address}: {e}")
@@ -347,7 +405,7 @@ def process_batch_transactions(
     chain: str,
     output_format: str,
     start_date: Optional[str] = None,
-    end_date: Optional[str] = None
+    end_date: Optional[str] = None,
 ) -> None:
     """
     Processes multiple wallet addresses concurrently.
@@ -365,7 +423,7 @@ def process_batch_transactions(
                 start_date,
                 end_date,
                 i,
-                len(addresses)
+                len(addresses),
             ): wallet_address
             for i, wallet_address in enumerate(addresses)
         }
@@ -382,19 +440,33 @@ def process_batch_transactions(
 # Main function
 def main() -> None:
     # Set up argument parser
-    parser = argparse.ArgumentParser(description='Fetch blockchain transaction data.')
-    parser.add_argument('--wallet', type=str, help='Comma-separated wallet addresses to fetch transactions for.')
-    parser.add_argument('--address-file', type=str, help='File containing a list of wallet addresses.')
-    parser.add_argument('--start-date', type=str, help='Start date in YYYY-MM-DD format.')
-    parser.add_argument('--end-date', type=str, help='End date in YYYY-MM-DD format.')
+    parser = argparse.ArgumentParser(description="Fetch blockchain transaction data.")
     parser.add_argument(
-        '--format',
+        "--wallet",
         type=str,
-        choices=['csv', 'json', 'cointracker', 'cryptotaxcalculator', 'koinly'],
-        default='csv',
-        help='Output format (csv, json, cointracker, cryptotaxcalculator, or koinly).'
+        help="Comma-separated wallet addresses to fetch transactions for.",
     )
-    parser.add_argument('--chain', type=str, choices=list(EXPLORER_URLS.keys()), default='mintchain', help='Blockchain explorer to use.')
+    parser.add_argument(
+        "--address-file", type=str, help="File containing a list of wallet addresses."
+    )
+    parser.add_argument(
+        "--start-date", type=str, help="Start date in YYYY-MM-DD format."
+    )
+    parser.add_argument("--end-date", type=str, help="End date in YYYY-MM-DD format.")
+    parser.add_argument(
+        "--format",
+        type=str,
+        choices=["csv", "json", "cointracker", "cryptotaxcalculator", "koinly"],
+        default="csv",
+        help="Output format (csv, json, cointracker, cryptotaxcalculator, or koinly).",
+    )
+    parser.add_argument(
+        "--chain",
+        type=str,
+        choices=list(EXPLORER_URLS.keys()),
+        default="mintchain",
+        help="Blockchain explorer to use.",
+    )
 
     try:
         args = parser.parse_args()
@@ -406,25 +478,34 @@ def main() -> None:
     # Collect wallet addresses from all sources
     wallet_addresses = []
     if validated_args.wallet:
-        wallet_addresses.extend([addr.strip() for addr in validated_args.wallet.split(',') if addr.strip()])
+        wallet_addresses.extend(
+            [addr.strip() for addr in validated_args.wallet.split(",") if addr.strip()]
+        )
     if validated_args.address_file:
         wallet_addresses.extend(get_addresses_from_file(validated_args.address_file))
 
     # Fallback to environment variables if no addresses are provided via arguments
     if not wallet_addresses:
-        env_addresses = os.getenv('WALLET_ADDRESSES')
+        env_addresses = os.getenv("WALLET_ADDRESSES")
         if env_addresses is not None:
-            wallet_addresses.extend([addr.strip() for addr in env_addresses.split(',') if addr.strip()])
+            wallet_addresses.extend(
+                [addr.strip() for addr in env_addresses.split(",") if addr.strip()]
+            )
         else:
-            env_wallet = os.getenv('WALLET_ADDRESS')
+            env_wallet = os.getenv("WALLET_ADDRESS")
             if env_wallet is not None:
                 wallet_addresses.append(env_wallet.strip())
 
     # Ensure there are unique addresses to process (lowercased for deduplication)
-    unique_addresses = sorted(list(set(
-        addr.lower() for addr in wallet_addresses
-        if addr and is_valid_evm_address(addr)
-    )))
+    unique_addresses = sorted(
+        list(
+            set(
+                addr.lower()
+                for addr in wallet_addresses
+                if addr and is_valid_evm_address(addr)
+            )
+        )
+    )
 
     if not unique_addresses:
         logging.error(
@@ -439,8 +520,9 @@ def main() -> None:
         validated_args.chain,
         validated_args.format,
         validated_args.start_date,
-        validated_args.end_date
+        validated_args.end_date,
     )
+
 
 if __name__ == "__main__":
     main()
