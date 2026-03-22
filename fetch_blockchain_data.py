@@ -12,6 +12,9 @@ from tenacity import (
 )
 
 from config import TIMEOUT
+
+# Initialize a global session for connection pooling
+session = requests.Session()
 from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
@@ -55,7 +58,7 @@ def _log_and_return_empty(retry_state):
 )
 def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
     try:
-        response = requests.get(endpoint, timeout=TIMEOUT)
+        response = session.get(endpoint, timeout=TIMEOUT)
         response.raise_for_status()
         data = response.json()
 

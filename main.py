@@ -237,14 +237,18 @@ def process_transactions(
         end_block = adapter.get_block_number_by_timestamp(end_ts, "before")
 
     # Fetch transactions concurrently
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         future_tx = executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)
         future_token = executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)
         future_internal = executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)
+        future_nft = executor.submit(adapter.get_nft_transfers, wallet_address, start_block, end_block)
+        future_1155 = executor.submit(adapter.get_1155_transfers, wallet_address, start_block, end_block)
 
         transactions = future_tx.result()
         token_transfers = future_token.result()
         internal_transactions = future_internal.result()
+        nft_transfers = future_nft.result()
+        _1155_transfers = future_1155.result()
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
@@ -256,10 +260,16 @@ def process_transactions(
     extracted_internal_transactions = extract_transaction_data(
         internal_transactions, 'internal_transaction', wallet_address, chain
     )
+    extracted_nft_transfers = extract_transaction_data(
+        nft_transfers, 'nft_transfer', wallet_address, chain
+    )
+    extracted_1155_transfers = extract_transaction_data(
+        _1155_transfers, '1155_transfer', wallet_address, chain
+    )
 
     # Combine and sort all transactions by date
     all_combined_transactions = combine_and_sort_transactions(
-        extracted_regular_transactions,
+        extracted_regular_transactions + extracted_nft_transfers + extracted_1155_transfers,
         extracted_token_transfers,
         extracted_internal_transactions
     )
