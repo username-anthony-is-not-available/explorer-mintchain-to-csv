@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar
 from urllib.parse import urlencode
 
 from pydantic import BaseModel
@@ -9,14 +9,14 @@ from config import EXPLORER_API_KEYS, EXPLORER_URLS
 from fetch_blockchain_data import fetch_data
 from models import RawTokenTransfer, RawTransaction
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 class ExplorerAdapter(ABC):
     def __init__(self, chain: str):
         self.chain = chain
 
-    def _get_explorer_api_url(self, params: Dict[str, any]) -> str:
+    def _get_explorer_api_url(self, params: Dict[str, Any]) -> str:
         """Constructs the full API URL for a given chain and parameters."""
         base_url = EXPLORER_URLS.get(self.chain)
         if not base_url:
@@ -29,12 +29,12 @@ class ExplorerAdapter(ABC):
         if api_key_env_var:
             api_key = os.getenv(api_key_env_var)
             if api_key:
-                query_params['apikey'] = api_key
+                query_params["apikey"] = api_key
 
         encoded_params = urlencode(query_params)
         return f"{base_url}?{encoded_params}"
 
-    def _fetch_all_pages(self, params: Dict[str, any], model: Type[T]) -> List[T]:
+    def _fetch_all_pages(self, params: Dict[str, Any], model: Type[T]) -> List[T]:
         """Fetches all pages of data from the API."""
         all_data: List[T] = []
         page = 1
@@ -43,8 +43,8 @@ class ExplorerAdapter(ABC):
         while True:
             # Create a copy of params for this specific page request
             page_params = params.copy()
-            page_params['page'] = page
-            page_params['offset'] = offset
+            page_params["page"] = page
+            page_params["offset"] = offset
 
             url = self._get_explorer_api_url(page_params)
             data = fetch_data(url, model)
@@ -73,34 +73,34 @@ class ExplorerAdapter(ABC):
 class EtherscanAdapter(ExplorerAdapter):
     def get_transactions(self, wallet_address: str) -> List[RawTransaction]:
         params = {
-            'module': 'account',
-            'action': 'txlist',
-            'address': wallet_address,
-            'startblock': 0,
-            'endblock': 99999999,
-            'sort': 'asc',
+            "module": "account",
+            "action": "txlist",
+            "address": wallet_address,
+            "startblock": 0,
+            "endblock": 99999999,
+            "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTransaction)
 
     def get_token_transfers(self, wallet_address: str) -> List[RawTokenTransfer]:
         params = {
-            'module': 'account',
-            'action': 'tokentx',
-            'address': wallet_address,
-            'startblock': 0,
-            'endblock': 99999999,
-            'sort': 'asc',
+            "module": "account",
+            "action": "tokentx",
+            "address": wallet_address,
+            "startblock": 0,
+            "endblock": 99999999,
+            "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTokenTransfer)
 
     def get_internal_transactions(self, wallet_address: str) -> List[RawTransaction]:
         params = {
-            'module': 'account',
-            'action': 'txlistinternal',
-            'address': wallet_address,
-            'startblock': 0,
-            'endblock': 99999999,
-            'sort': 'asc',
+            "module": "account",
+            "action": "txlistinternal",
+            "address": wallet_address,
+            "startblock": 0,
+            "endblock": 99999999,
+            "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTransaction)
 
@@ -114,4 +114,12 @@ class ArbiscanAdapter(EtherscanAdapter):
 
 
 class MintchainAdapter(EtherscanAdapter):
+    pass
+
+
+class OptimismAdapter(EtherscanAdapter):
+    pass
+
+
+class PolygonAdapter(EtherscanAdapter):
     pass

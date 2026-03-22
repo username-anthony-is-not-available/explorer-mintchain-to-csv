@@ -1,4 +1,3 @@
-
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -82,7 +81,7 @@ def test_cli_json_output(responses):
         # Based on extract_transaction_data.py, for a simple ETH transfer it should look like this:
         expected_data = [
             {
-                "Date": "1672531200",
+                "Date": "2023-01-01 00:00:00 UTC",
                 "Sent Amount": "1",
                 "Sent Currency": "ETH",
                 "Received Amount": None,
@@ -98,7 +97,9 @@ def test_cli_json_output(responses):
         ]
 
         # Assert that the content of the output file is correct
-        assert data == expected_data, f"The output JSON data does not match the expected data. Actual: {data}"
+        assert data == expected_data, (
+            f"The output JSON data does not match the expected data. Actual: {data}"
+        )
 
     finally:
         # Clean up the created file

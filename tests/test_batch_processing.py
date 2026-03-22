@@ -27,8 +27,8 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
 
     # Mock return values for each wallet processed
     mock_process.side_effect = [
-        [Transaction.model_validate({"Date": "1", "Description": "tx1", "TxHash": "0x1"})],
-        [Transaction.model_validate({"Date": "2", "Description": "tx2", "TxHash": "0x2"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:01 UTC", "timestamp": 1, "Description": "tx1", "TxHash": "0x1"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:02 UTC", "timestamp": 2, "Description": "tx2", "TxHash": "0x2"})],
     ]
 
     main()
@@ -44,7 +44,7 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
         f"output/{addr1}_transactions.csv",
         [
             {
-                "Date": "1", "Sent Amount": None, "Sent Currency": None,
+                "Date": "2023-01-01 00:00:01 UTC", "Sent Amount": None, "Sent Currency": None,
                 "Received Amount": None, "Received Currency": None, "Fee Amount": None,
                 "Fee Currency": None, "Net Worth Amount": None, "Net Worth Currency": None,
                 "Label": None, "Description": "tx1", "TxHash": "0x1",
@@ -55,7 +55,7 @@ def test_main_batch_wallet_arg(mock_write_csv, mock_process, mock_argparse):
         f"output/{addr2}_transactions.csv",
         [
             {
-                "Date": "2", "Sent Amount": None, "Sent Currency": None,
+                "Date": "2023-01-01 00:00:02 UTC", "Sent Amount": None, "Sent Currency": None,
                 "Received Amount": None, "Received Currency": None, "Fee Amount": None,
                 "Fee Currency": None, "Net Worth Amount": None, "Net Worth Currency": None,
                 "Label": None, "Description": "tx2", "TxHash": "0x2",
@@ -86,8 +86,8 @@ def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, 
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.side_effect = [
-        [Transaction.model_validate({"Date": "3", "Description": "tx3", "TxHash": "0x3", "Sent Amount": "1"})],
-        [Transaction.model_validate({"Date": "4", "Description": "tx4", "TxHash": "0x4", "Sent Amount": "1"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:03 UTC", "timestamp": 3, "Description": "tx3", "TxHash": "0x3", "Sent Amount": "1"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:04 UTC", "timestamp": 4, "Description": "tx4", "TxHash": "0x4", "Sent Amount": "1"})],
     ]
 
     main()
@@ -127,8 +127,8 @@ def test_main_batch_env_var(mock_getenv, mock_write_csv, mock_process, mock_argp
     mock_getenv.side_effect = getenv_side_effect
 
     mock_process.side_effect = [
-        [Transaction.model_validate({"Date": "5", "Description": "tx5", "TxHash": "0x5"})],
-        [Transaction.model_validate({"Date": "6", "Description": "tx6", "TxHash": "0x6"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:05 UTC", "timestamp": 5, "Description": "tx5", "TxHash": "0x5"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:06 UTC", "timestamp": 6, "Description": "tx6", "TxHash": "0x6"})],
     ]
 
     main()
