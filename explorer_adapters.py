@@ -60,62 +60,46 @@ class ExplorerAdapter(ABC):
 
     @abstractmethod
     def get_transactions(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTransaction]:
         pass
 
     @abstractmethod
     def get_token_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTokenTransfer]:
         pass
 
     @abstractmethod
     def get_internal_transactions(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTransaction]:
         pass
 
     @abstractmethod
     def get_nft_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawNFTTransfer]:
         pass
 
     @abstractmethod
-    def get_erc1155_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+    def get_1155_transfers(
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[Raw1155Transfer]:
         pass
 
     @abstractmethod
-    def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
+    def get_block_number_by_timestamp(
+        self, timestamp: int, closest: str = "before"
+    ) -> int:
         pass
 
 
 class EtherscanAdapter(ExplorerAdapter):
-    _block_number_cache: Dict[str, int] = {}
+    _block_cache: Dict[str, int] = {}
 
     def get_transactions(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTransaction]:
         params = {
             "module": "account",
@@ -128,10 +112,7 @@ class EtherscanAdapter(ExplorerAdapter):
         return self._fetch_all_pages(params, RawTransaction)
 
     def get_token_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTokenTransfer]:
         params = {
             "module": "account",
@@ -144,10 +125,7 @@ class EtherscanAdapter(ExplorerAdapter):
         return self._fetch_all_pages(params, RawTokenTransfer)
 
     def get_internal_transactions(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawTransaction]:
         params = {
             "module": "account",
@@ -160,10 +138,7 @@ class EtherscanAdapter(ExplorerAdapter):
         return self._fetch_all_pages(params, RawTransaction)
 
     def get_nft_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[RawNFTTransfer]:
         params = {
             "module": "account",
@@ -175,11 +150,8 @@ class EtherscanAdapter(ExplorerAdapter):
         }
         return self._fetch_all_pages(params, RawNFTTransfer)
 
-    def get_erc1155_transfers(
-        self,
-        wallet_address: str,
-        startblock: int = 0,
-        endblock: int = 99999999
+    def get_1155_transfers(
+        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
     ) -> List[Raw1155Transfer]:
         params = {
             "module": "account",
@@ -191,10 +163,12 @@ class EtherscanAdapter(ExplorerAdapter):
         }
         return self._fetch_all_pages(params, Raw1155Transfer)
 
-    def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
+    def get_block_number_by_timestamp(
+        self, timestamp: int, closest: str = "before"
+    ) -> int:
         cache_key = f"{self.chain}_{timestamp}_{closest}"
-        if cache_key in self._block_number_cache:
-            return self._block_number_cache[cache_key]
+        if cache_key in self._block_cache:
+            return self._block_cache[cache_key]
 
         params = {
             "module": "block",
@@ -210,7 +184,7 @@ class EtherscanAdapter(ExplorerAdapter):
             data = response.json()
             if data.get("status") == "1":
                 block_number = int(data.get("result"))
-                self._block_number_cache[cache_key] = block_number
+                self._block_cache[cache_key] = block_number
                 return block_number
         except Exception:
             # Silently fall back to default block numbers on any error to ensure reliability

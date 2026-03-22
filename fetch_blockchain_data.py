@@ -12,6 +12,9 @@ from tenacity import (
 )
 
 from config import TIMEOUT
+
+# Initialize a global session for connection pooling
+session = requests.Session()
 from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)

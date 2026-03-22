@@ -1,4 +1,4 @@
-from models import RawTokenTransfer, RawTransaction, Transaction, Address, Token, Total
+from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction, Transaction, Address, Token, Total
 from extract_transaction_data import extract_transaction_data
 
 WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
@@ -43,6 +43,43 @@ def test_extract_transaction_data_regular_transaction_received():
     assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
+
+def test_extract_nft_transfer_data():
+    raw_data = [
+        RawNFTTransfer.model_validate({
+            'hash': '0xnft',
+            'timeStamp': '1672531200',
+            'from': {'hash': WALLET_ADDRESS},
+            'to': {'hash': '0xrecipient'},
+            'tokenID': '1',
+            'tokenName': 'NFT Name',
+            'tokenSymbol': 'NFT',
+        })
+    ]
+    extracted = extract_transaction_data(raw_data, 'nft_transfer', WALLET_ADDRESS, 'mintchain')
+    assert len(extracted) == 1
+    assert extracted[0].sent_amount == '1'
+    assert extracted[0].sent_currency == 'NFT'
+    assert extracted[0].description == 'nft_transfer'
+
+def test_extract_1155_transfer_data():
+    raw_data = [
+        Raw1155Transfer.model_validate({
+            'hash': '0x1155',
+            'timeStamp': '1672531200',
+            'from': {'hash': '0xsender'},
+            'to': {'hash': WALLET_ADDRESS},
+            'tokenID': '1',
+            'tokenValue': '10',
+            'tokenName': '1155 Name',
+            'tokenSymbol': '1155',
+        })
+    ]
+    extracted = extract_transaction_data(raw_data, '1155_transfer', WALLET_ADDRESS, 'mintchain')
+    assert len(extracted) == 1
+    assert extracted[0].received_amount == '10'
+    assert extracted[0].received_currency == '1155'
+    assert extracted[0].description == '1155_transfer'
 
 def test_extract_transaction_data_polygon_native():
     raw_trx_data = {

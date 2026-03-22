@@ -274,6 +274,7 @@ def test_adapter_get_block_number_by_timestamp(mocked_responses):
     """
     Verify that get_block_number_by_timestamp correctly calls the API and returns the block number.
     """
+    EtherscanAdapter._block_cache.clear()
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
     timestamp = 1725148800
@@ -295,8 +296,7 @@ def test_adapter_get_block_number_by_timestamp_error(mocked_responses):
     """
     Verify that get_block_number_by_timestamp returns fallback values on API error.
     """
-    # Clear cache to ensure test reliability
-    EtherscanAdapter._block_number_cache.clear()
+    EtherscanAdapter._block_cache.clear()
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
     timestamp = 1725148800
