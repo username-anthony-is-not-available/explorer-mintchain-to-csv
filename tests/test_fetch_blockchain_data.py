@@ -270,6 +270,56 @@ def test_adapter_unsupported_chain():
         adapter.get_transactions(WALLET_ADDRESS)
 
 
+def test_adapter_get_block_number_by_timestamp(mocked_responses):
+    """
+    Verify that get_block_number_by_timestamp correctly calls the API and returns the block number.
+    """
+    adapter = MintchainAdapter(CHAIN)
+    base_url = EXPLORER_URLS[CHAIN]
+    timestamp = 1725148800
+    mock_url = f"{base_url}?module=block&action=getblocknobytime&timestamp={timestamp}&closest=before"
+
+    mocked_responses.add(
+        responses.GET,
+        mock_url,
+        json={"status": "1", "message": "OK", "result": "4769934"},
+        status=200,
+    )
+
+    block_number = adapter.get_block_number_by_timestamp(timestamp, "before")
+    assert block_number == 4769934
+    assert len(mocked_responses.calls) == 1
+
+
+def test_adapter_get_block_number_by_timestamp_error(mocked_responses):
+    """
+    Verify that get_block_number_by_timestamp returns fallback values on API error.
+    """
+    adapter = MintchainAdapter(CHAIN)
+    base_url = EXPLORER_URLS[CHAIN]
+    timestamp = 1725148800
+
+    # Test "before" fallback
+    mock_url_before = f"{base_url}?module=block&action=getblocknobytime&timestamp={timestamp}&closest=before"
+    mocked_responses.add(
+        responses.GET,
+        mock_url_before,
+        json={"status": "0", "message": "NOTOK", "result": "Error!"},
+        status=200,
+    )
+    assert adapter.get_block_number_by_timestamp(timestamp, "before") == 0
+
+    # Test "after" fallback
+    mock_url_after = f"{base_url}?module=block&action=getblocknobytime&timestamp={timestamp}&closest=after"
+    mocked_responses.add(
+        responses.GET,
+        mock_url_after,
+        json={"status": "0", "message": "NOTOK", "result": "Error!"},
+        status=200,
+    )
+    assert adapter.get_block_number_by_timestamp(timestamp, "after") == 99999999
+
+
 @pytest.mark.parametrize("chain", ["etherscan", "basescan", "arbiscan"])
 def test_adapter_with_api_key(mocked_responses, monkeypatch, chain):
     adapter_class = ADAPTERS[chain]
