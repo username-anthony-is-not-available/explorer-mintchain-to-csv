@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from main import (
     Args,
     combine_and_sort_transactions,
+    merge_transactions_by_hash,
     main,
     process_transactions,
 )
@@ -265,3 +266,116 @@ def test_process_transactions_optimism(mock_process_tx):
     from main import process_batch_transactions
     process_batch_transactions(["0x456"], "optimism", "csv")
     mock_process_tx.assert_called_with("0x456", "optimism", None, None)
+
+
+def test_merge_transactions_by_hash():
+    """
+    Test that merge_transactions_by_hash correctly merges transactions with the same hash.
+    """
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Amount": "10.0",
+        "Sent Currency": "ETH",
+        "TxHash": "0xhash1",
+        "Description": "ETH Transfer",
+        "Label": "transfer"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Received Amount": "100.0",
+        "Received Currency": "TOK",
+        "TxHash": "0xhash1",
+        "Description": "Token transfer",
+        "Label": "token_transfer"
+    })
+    tx3 = Transaction.model_validate({
+        "Date": "2023-01-01 00:01:00 UTC",
+        "timestamp": 2,
+        "Sent Amount": "5.0",
+        "Sent Currency": "ETH",
+        "TxHash": "0xhash2",
+        "Description": "Another Transfer",
+        "Label": "transfer"
+    })
+
+    merged_txs = merge_transactions_by_hash([tx1, tx2, tx3])
+
+    assert len(merged_txs) == 2
+
+    # Check merged transaction 1
+    tx_hash1 = next(tx for tx in merged_txs if tx.tx_hash == "0xhash1")
+    assert tx_hash1.sent_amount == "10.0"
+    assert tx_hash1.received_amount == "100.0"
+    assert tx_hash1.sent_currency == "ETH"
+    assert tx_hash1.received_currency == "TOK"
+    assert "ETH Transfer" in tx_hash1.description
+    assert "Token transfer" in tx_hash1.description
+
+    # Check transaction 2 remains unchanged
+    tx_hash2 = next(tx for tx in merged_txs if tx.tx_hash == "0xhash2")
+    assert tx_hash2.sent_amount == "5.0"
+    assert tx_hash2.tx_hash == "0xhash2"
+
+
+def test_merge_transactions_multi_currency():
+    """
+    Test that merge_transactions_by_hash does not merge transactions with different currencies
+    to prevent data loss.
+    """
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Amount": "10.0",
+        "Sent Currency": "ETH",
+        "TxHash": "0xhash_multi",
+        "Description": "ETH movement",
+        "Label": "transfer"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Amount": "50.0",
+        "Sent Currency": "USDC",
+        "TxHash": "0xhash_multi",
+        "Description": "USDC movement",
+        "Label": "token_transfer"
+    })
+
+    merged_txs = merge_transactions_by_hash([tx1, tx2])
+
+    assert len(merged_txs) == 2
+    assert any(tx.sent_currency == "ETH" for tx in merged_txs)
+    assert any(tx.sent_currency == "USDC" for tx in merged_txs)
+
+
+def test_merge_transactions_same_currency_sum():
+    """
+    Test that merge_transactions_by_hash correctly sums amounts of the same currency.
+    """
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Amount": "10.0",
+        "Sent Currency": "ETH",
+        "TxHash": "0xhash_sum",
+        "Description": "First move",
+        "Label": "transfer"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Amount": "5.5",
+        "Sent Currency": "ETH",
+        "TxHash": "0xhash_sum",
+        "Description": "Second move",
+        "Label": "transfer"
+    })
+
+    merged_txs = merge_transactions_by_hash([tx1, tx2])
+
+    assert len(merged_txs) == 1
+    assert merged_txs[0].sent_amount == "15.5"
+    assert "First move" in merged_txs[0].description
+    assert "Second move" in merged_txs[0].description

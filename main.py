@@ -5,7 +5,8 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Dict, List, Optional, Type
 
 from dotenv import load_dotenv
@@ -92,6 +93,94 @@ def combine_and_sort_transactions(
     return all_transactions_sorted
 
 
+def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transaction]:
+    """
+    Merges transactions with the same hash into a single Transaction object where possible.
+    If currencies don't match, they are kept as separate entries to prevent data loss.
+    """
+    merged_list: List[Transaction] = []
+    # Map from hash to a list of Transaction objects (to handle multiple movements with the same hash)
+    tx_hash_to_merged: Dict[str, List[Transaction]] = {}
+
+    for tx in transactions:
+        tx_hash = tx.tx_hash
+        if tx_hash not in tx_hash_to_merged:
+            tx_hash_to_merged[tx_hash] = [tx.model_copy()]
+            continue
+
+        # Try to merge with an existing transaction for this hash
+        merged_successfully = False
+        for existing_tx in tx_hash_to_merged[tx_hash]:
+            can_merge_sent = False
+            can_merge_received = False
+
+            # Sent amount merge logic
+            if not tx.sent_amount or not existing_tx.sent_amount or tx.sent_currency == existing_tx.sent_currency:
+                can_merge_sent = True
+
+            # Received amount merge logic
+            if not tx.received_amount or not existing_tx.received_amount or tx.received_currency == existing_tx.received_currency:
+                can_merge_received = True
+
+            if can_merge_sent and can_merge_received:
+                # Perform the merge
+                if tx.sent_amount:
+                    if existing_tx.sent_amount:
+                        try:
+                            new_amount = Decimal(existing_tx.sent_amount) + Decimal(tx.sent_amount)
+                            formatted = format(new_amount, 'f')
+                            if '.' in formatted:
+                                formatted = formatted.rstrip('0').rstrip('.')
+                            existing_tx.sent_amount = formatted if formatted != "" else "0"
+                        except (ValueError, ArithmeticError):
+                            pass
+                    else:
+                        existing_tx.sent_amount = tx.sent_amount
+                        existing_tx.sent_currency = tx.sent_currency
+
+                if tx.received_amount:
+                    if existing_tx.received_amount:
+                        try:
+                            new_amount = Decimal(existing_tx.received_amount) + Decimal(tx.received_amount)
+                            formatted = format(new_amount, 'f')
+                            if '.' in formatted:
+                                formatted = formatted.rstrip('0').rstrip('.')
+                            existing_tx.received_amount = formatted if formatted != "" else "0"
+                        except (ValueError, ArithmeticError):
+                            pass
+                    else:
+                        existing_tx.received_amount = tx.received_amount
+                        existing_tx.received_currency = tx.received_currency
+
+                # Combine Fees
+                if tx.fee_amount and not existing_tx.fee_amount:
+                    existing_tx.fee_amount = tx.fee_amount
+                    existing_tx.fee_currency = tx.fee_currency
+
+                # Combine Labels (prioritize more specific labels)
+                if tx.label and tx.label not in ['', 'transfer', 'token_transfer']:
+                    existing_tx.label = tx.label
+
+                # Combine descriptions
+                if tx.description:
+                    existing_desc = existing_tx.description or ""
+                    if tx.description not in existing_desc:
+                        existing_tx.description = f"{existing_desc}, {tx.description}" if existing_desc else tx.description
+
+                merged_successfully = True
+                break
+
+        if not merged_successfully:
+            # If couldn't merge with any existing, add as a new transaction for this hash
+            tx_hash_to_merged[tx_hash].append(tx.model_copy())
+
+    # Flatten the map back into a list
+    for tx_list in tx_hash_to_merged.values():
+        merged_list.extend(tx_list)
+
+    return merged_list
+
+
 def get_addresses_from_file(file_path: str) -> List[str]:
     """
     Reads wallet addresses from a TXT or CSV file.
@@ -136,10 +225,26 @@ def process_transactions(
         raise ValueError(f"Unsupported chain: {chain}")
     adapter = adapter_class(chain)
 
-    # Fetch and combine transactions
-    transactions = adapter.get_transactions(wallet_address)
-    token_transfers = adapter.get_token_transfers(wallet_address)
-    internal_transactions = adapter.get_internal_transactions(wallet_address)
+    start_block = 0
+    end_block = 99999999
+
+    if start_date_str:
+        start_ts = int(datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+        start_block = adapter.get_block_number_by_timestamp(start_ts, "after")
+
+    if end_date_str:
+        end_ts = int(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59, tzinfo=timezone.utc).timestamp())
+        end_block = adapter.get_block_number_by_timestamp(end_ts, "before")
+
+    # Fetch transactions concurrently
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_tx = executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)
+        future_token = executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)
+        future_internal = executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)
+
+        transactions = future_tx.result()
+        token_transfers = future_token.result()
+        internal_transactions = future_internal.result()
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
@@ -153,26 +258,29 @@ def process_transactions(
     )
 
     # Combine and sort all transactions by date
-    all_sorted_transactions = combine_and_sort_transactions(
+    all_combined_transactions = combine_and_sort_transactions(
         extracted_regular_transactions,
         extracted_token_transfers,
         extracted_internal_transactions
     )
 
-    # Filter transactions by date range if provided
+    # Merge transactions by hash
+    all_sorted_transactions = merge_transactions_by_hash(all_combined_transactions)
+
+    # Filter transactions by date range if provided (as a secondary check)
     if start_date_str:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.fromtimestamp(trx.timestamp) >= start_date
+            if datetime.fromtimestamp(trx.timestamp, tz=timezone.utc) >= start_date
         ]
     if end_date_str:
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(
-            hour=23, minute=59, second=59
+            hour=23, minute=59, second=59, tzinfo=timezone.utc
         )
         all_sorted_transactions = [
             trx for trx in all_sorted_transactions
-            if datetime.fromtimestamp(trx.timestamp) <= end_date
+            if datetime.fromtimestamp(trx.timestamp, tz=timezone.utc) <= end_date
         ]
 
     return all_sorted_transactions
