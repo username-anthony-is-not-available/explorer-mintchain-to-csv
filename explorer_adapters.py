@@ -7,8 +7,8 @@ from urllib.parse import urlencode
 from pydantic import BaseModel
 
 from config import EXPLORER_API_KEYS, EXPLORER_URLS, TIMEOUT
-from fetch_blockchain_data import fetch_data
-from models import RawTokenTransfer, RawTransaction
+from fetch_blockchain_data import fetch_data, session
+from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -86,11 +86,31 @@ class ExplorerAdapter(ABC):
         pass
 
     @abstractmethod
+    def get_nft_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawNFTTransfer]:
+        pass
+
+    @abstractmethod
+    def get_1155_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[Raw1155Transfer]:
+        pass
+
+    @abstractmethod
     def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
         pass
 
 
 class EtherscanAdapter(ExplorerAdapter):
+    _block_cache: Dict[str, int] = {}
+
     def get_transactions(
         self,
         wallet_address: str,
@@ -139,7 +159,43 @@ class EtherscanAdapter(ExplorerAdapter):
         }
         return self._fetch_all_pages(params, RawTransaction)
 
+    def get_nft_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawNFTTransfer]:
+        params = {
+            "module": "account",
+            "action": "tokennfttx",
+            "address": wallet_address,
+            "startblock": startblock,
+            "endblock": endblock,
+            "sort": "asc",
+        }
+        return self._fetch_all_pages(params, RawNFTTransfer)
+
+    def get_1155_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[Raw1155Transfer]:
+        params = {
+            "module": "account",
+            "action": "token1155tx",
+            "address": wallet_address,
+            "startblock": startblock,
+            "endblock": endblock,
+            "sort": "asc",
+        }
+        return self._fetch_all_pages(params, Raw1155Transfer)
+
     def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
+        cache_key = f"{self.chain}_{timestamp}_{closest}"
+        if cache_key in self._block_cache:
+            return self._block_cache[cache_key]
+
         params = {
             "module": "block",
             "action": "getblocknobytime",
@@ -149,11 +205,13 @@ class EtherscanAdapter(ExplorerAdapter):
         url = self._get_explorer_api_url(params)
         try:
             # Using a raw fetch here as we just want the block number string
-            response = requests.get(url, timeout=TIMEOUT)
+            response = session.get(url, timeout=TIMEOUT)
             response.raise_for_status()
             data = response.json()
             if data.get("status") == "1":
-                return int(data.get("result"))
+                block_number = int(data.get("result"))
+                self._block_cache[cache_key] = block_number
+                return block_number
         except Exception:
             # Silently fall back to default block numbers on any error to ensure reliability
             pass

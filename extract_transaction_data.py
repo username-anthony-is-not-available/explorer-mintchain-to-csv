@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Sequence, Union
 from config import NATIVE_CURRENCIES
-from models import RawTokenTransfer, RawTransaction, Transaction
+from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction, Transaction
 from transaction_categorization import categorize_transaction
 
-AnyRawTransaction = Union[RawTransaction, RawTokenTransfer]
+AnyRawTransaction = Union[RawTransaction, RawTokenTransfer, RawNFTTransfer, Raw1155Transfer]
 
 def scale_amount(amount: str, decimals: int) -> str:
     """Scales an amount from base units to decimal units."""
@@ -74,6 +74,24 @@ def extract_transaction_data(
             if is_receiver:
                 data['Received Amount'] = scale_amount(trx.total.value, decimals)
                 data['Received Currency'] = trx.token.symbol
+
+        elif isinstance(trx, RawNFTTransfer):
+            data['Description'] = 'nft_transfer'
+            if is_sender:
+                data['Sent Amount'] = "1"
+                data['Sent Currency'] = trx.tokenSymbol
+            if is_receiver:
+                data['Received Amount'] = "1"
+                data['Received Currency'] = trx.tokenSymbol
+
+        elif isinstance(trx, Raw1155Transfer):
+            data['Description'] = '1155_transfer'
+            if is_sender:
+                data['Sent Amount'] = trx.tokenValue
+                data['Sent Currency'] = trx.tokenSymbol
+            if is_receiver:
+                data['Received Amount'] = trx.tokenValue
+                data['Received Currency'] = trx.tokenSymbol
 
         extracted_data.append(Transaction.model_validate(data))
 

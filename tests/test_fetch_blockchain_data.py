@@ -150,7 +150,7 @@ def test_adapter_get_internal_transactions_success(mocked_responses):
     assert transactions[0].hash == "0xghi"
 
 
-@patch("requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_retry_logic(mock_get, caplog):
     # Configure the mock to raise a RequestException 5 times
     mock_get.side_effect = RequestException("Test Exception")
@@ -203,7 +203,7 @@ def test_fetch_data_rate_limiting_logic(mock_sleep, caplog):
     assert result == []
 
 
-@patch("requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_retry_on_server_error(mock_get, caplog):
     # Configure the mock to raise an HTTPError for a server-side error (e.g., 500)
     mock_response = Mock()
@@ -229,7 +229,7 @@ def test_fetch_data_retry_on_server_error(mock_get, caplog):
     assert "An error occurred while fetching data after multiple retries" in caplog.text
 
 
-@patch("requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_retry_on_request_exception(mock_get):
     # Configure the mock to raise a RequestException 3 times, then succeed
     mock_get.side_effect = [
@@ -274,6 +274,7 @@ def test_adapter_get_block_number_by_timestamp(mocked_responses):
     """
     Verify that get_block_number_by_timestamp correctly calls the API and returns the block number.
     """
+    EtherscanAdapter._block_cache.clear()
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
     timestamp = 1725148800
@@ -295,6 +296,7 @@ def test_adapter_get_block_number_by_timestamp_error(mocked_responses):
     """
     Verify that get_block_number_by_timestamp returns fallback values on API error.
     """
+    EtherscanAdapter._block_cache.clear()
     adapter = MintchainAdapter(CHAIN)
     base_url = EXPLORER_URLS[CHAIN]
     timestamp = 1725148800
@@ -487,7 +489,7 @@ MOCK_INVALID_RESULT_RESPONSE = {
 DUMMY_ENDPOINT = "http://fake-api.com/data"
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_parses_transactions_correctly(mock_get):
     """
     Verify that fetch_data correctly parses a successful transaction API response
@@ -511,7 +513,7 @@ def test_fetch_data_parses_transactions_correctly(mock_get):
     mock_response.raise_for_status.assert_called_once()
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_parses_token_transfers_correctly(mock_get):
     """
     Verify that fetch_data correctly parses a successful token transfer API response
@@ -537,7 +539,7 @@ def test_fetch_data_parses_token_transfers_correctly(mock_get):
     mock_response.raise_for_status.assert_called_once()
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_handles_api_error_gracefully(mock_get):
     """
     Verify that fetch_data returns an empty list when the API call
@@ -554,7 +556,7 @@ def test_fetch_data_handles_api_error_gracefully(mock_get):
     mock_get.assert_called()
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_handles_validation_error(mock_get, caplog):
     """
     Verify that fetch_data logs a warning for validation errors but continues
@@ -576,7 +578,7 @@ def test_fetch_data_handles_validation_error(mock_get, caplog):
     assert "Validation error for item" in caplog.text
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
     """
     Verify that fetch_data returns an empty list and logs an error when the
@@ -600,7 +602,7 @@ def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
     )
 
 
-@patch("fetch_blockchain_data.requests.get")
+@patch("fetch_blockchain_data.session.get")
 def test_fetch_data_handles_no_transactions_found(mock_get, caplog):
     """
     Verify that fetch_data returns an empty list and does NOT log an error
