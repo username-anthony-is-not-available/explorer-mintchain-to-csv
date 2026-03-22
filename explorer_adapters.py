@@ -1,11 +1,12 @@
 import os
+import requests
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 from urllib.parse import urlencode
 
 from pydantic import BaseModel
 
-from config import EXPLORER_API_KEYS, EXPLORER_URLS
+from config import EXPLORER_API_KEYS, EXPLORER_URLS, TIMEOUT
 from fetch_blockchain_data import fetch_data
 from models import RawTokenTransfer, RawTransaction
 
@@ -58,51 +59,109 @@ class ExplorerAdapter(ABC):
         return all_data
 
     @abstractmethod
-    def get_transactions(self, wallet_address: str) -> List[RawTransaction]:
+    def get_transactions(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTransaction]:
         pass
 
     @abstractmethod
-    def get_token_transfers(self, wallet_address: str) -> List[RawTokenTransfer]:
+    def get_token_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTokenTransfer]:
         pass
 
     @abstractmethod
-    def get_internal_transactions(self, wallet_address: str) -> List[RawTransaction]:
+    def get_internal_transactions(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTransaction]:
+        pass
+
+    @abstractmethod
+    def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
         pass
 
 
 class EtherscanAdapter(ExplorerAdapter):
-    def get_transactions(self, wallet_address: str) -> List[RawTransaction]:
+    def get_transactions(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTransaction]:
         params = {
             "module": "account",
             "action": "txlist",
             "address": wallet_address,
-            "startblock": 0,
-            "endblock": 99999999,
+            "startblock": startblock,
+            "endblock": endblock,
             "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTransaction)
 
-    def get_token_transfers(self, wallet_address: str) -> List[RawTokenTransfer]:
+    def get_token_transfers(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTokenTransfer]:
         params = {
             "module": "account",
             "action": "tokentx",
             "address": wallet_address,
-            "startblock": 0,
-            "endblock": 99999999,
+            "startblock": startblock,
+            "endblock": endblock,
             "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTokenTransfer)
 
-    def get_internal_transactions(self, wallet_address: str) -> List[RawTransaction]:
+    def get_internal_transactions(
+        self,
+        wallet_address: str,
+        startblock: int = 0,
+        endblock: int = 99999999
+    ) -> List[RawTransaction]:
         params = {
             "module": "account",
             "action": "txlistinternal",
             "address": wallet_address,
-            "startblock": 0,
-            "endblock": 99999999,
+            "startblock": startblock,
+            "endblock": endblock,
             "sort": "asc",
         }
         return self._fetch_all_pages(params, RawTransaction)
+
+    def get_block_number_by_timestamp(self, timestamp: int, closest: str = "before") -> int:
+        params = {
+            "module": "block",
+            "action": "getblocknobytime",
+            "timestamp": timestamp,
+            "closest": closest,
+        }
+        url = self._get_explorer_api_url(params)
+        try:
+            # Using a raw fetch here as we just want the block number string
+            response = requests.get(url, timeout=TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            if data.get("status") == "1":
+                return int(data.get("result"))
+        except Exception:
+            # Silently fall back to default block numbers on any error to ensure reliability
+            pass
+        # If closest is "after", we want the block starting FROM this time.
+        # Fallback to 0 means we get everything from the beginning.
+        # If closest is "before", we want the block UP TO this time.
+        # Fallback to 99999999 means we get everything up to the latest.
+        return 0 if closest == "after" else 99999999
 
 
 class BasescanAdapter(EtherscanAdapter):
