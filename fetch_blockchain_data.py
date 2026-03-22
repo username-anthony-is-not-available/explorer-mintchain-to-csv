@@ -4,12 +4,18 @@ from typing import List, Type, TypeVar
 import requests
 from pydantic import BaseModel, ValidationError
 from requests.exceptions import HTTPError, RequestException
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from config import TIMEOUT
 from models import RawTokenTransfer, RawTransaction
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+
 
 def wait_retry_after_or_exponential(retry_state):
     """
@@ -22,22 +28,30 @@ def wait_retry_after_or_exponential(retry_state):
         if retry_after:
             try:
                 wait_seconds = int(retry_after)
-                logging.warning(f"Rate limit exceeded. Retrying after {wait_seconds} seconds.")
+                logging.warning(
+                    f"Rate limit exceeded. Retrying after {wait_seconds} seconds."
+                )
                 return wait_seconds
             except (ValueError, TypeError):
-                logging.warning(f"Could not parse 'Retry-After' header: {retry_after}. Falling back to exponential backoff.")
+                logging.warning(
+                    f"Could not parse 'Retry-After' header: {retry_after}. Falling back to exponential backoff."
+                )
 
     return wait_exponential(multiplier=1, min=4, max=60)(retry_state)
 
+
 def _log_and_return_empty(retry_state):
-    logging.error(f"An error occurred while fetching data after multiple retries: {retry_state.outcome.exception()}")
+    logging.error(
+        f"An error occurred while fetching data after multiple retries: {retry_state.outcome.exception()}"
+    )
     return []
+
 
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_retry_after_or_exponential,
     retry_error_callback=_log_and_return_empty,
-    retry=retry_if_exception_type(RequestException)
+    retry=retry_if_exception_type(RequestException),
 )
 def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
     try:
@@ -45,21 +59,20 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         response.raise_for_status()
         data = response.json()
 
-        status = data.get('status')
-        message = data.get('message')
-        result_list = data.get('result')
+        status = data.get("status")
+        message = data.get("message")
 
-        # Handle Etherscan-like "No transactions found" response
-        if status == '0' and message == 'No transactions found':
+        # Handle Etherscan-style empty responses gracefully
+        if status == "0" and message == "No transactions found":
             return []
 
-        # Handle other API errors that return 200 OK but status '0'
-        if status == '0':
-            logging.error(f"API error for {endpoint}: {message}. Result: {result_list}")
-            return []
+        result_list = data.get("result")
 
+        # Handle malformed result formats
         if not isinstance(result_list, list):
-            logging.error(f"API response for {endpoint} does not contain a list in 'result': {data}")
+            logging.error(
+                f"API response for {endpoint} does not contain a list in 'result': {data}"
+            )
             return []
 
         validated_data: List[T] = []
@@ -68,7 +81,9 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
                 validated_item = model.model_validate(item)
                 validated_data.append(validated_item)
             except ValidationError as e:
-                logging.warning(f"Validation error for item in {endpoint}: {e}. Item: {item}")
+                logging.warning(
+                    f"Validation error for item in {endpoint}: {e}. Item: {item}"
+                )
 
         return validated_data
 
