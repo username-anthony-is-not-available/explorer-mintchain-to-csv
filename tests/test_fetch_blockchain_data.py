@@ -349,6 +349,7 @@ def test_adapter_without_api_key(mocked_responses, monkeypatch, chain):
     assert len(mocked_responses.calls) == 1
     assert mocked_responses.calls[0].request.url == mock_url
 
+
 # Mock JSON responses imitating the blockchain explorer API
 MOCK_TRANSACTIONS_RESPONSE = {
     "status": "1",
@@ -361,7 +362,7 @@ MOCK_TRANSACTIONS_RESPONSE = {
             "to": {"hash": "0xtoaddress1"},
             "value": "1000000000000000000",
             "gasUsed": "21000",
-            "gasPrice": "50000000000"
+            "gasPrice": "50000000000",
         },
         {
             "hash": "0xtxhash2",
@@ -370,9 +371,9 @@ MOCK_TRANSACTIONS_RESPONSE = {
             "to": {"hash": "0xtoaddress2"},
             "value": "2000000000000000000",
             "gasUsed": "21000",
-            "gasPrice": "50000000000"
-        }
-    ]
+            "gasPrice": "50000000000",
+        },
+    ],
 }
 
 MOCK_TOKEN_TRANSFERS_RESPONSE = {
@@ -386,7 +387,7 @@ MOCK_TOKEN_TRANSFERS_RESPONSE = {
             "to": {"hash": "0xtoaddress3"},
             "total": {"value": "500"},
             "token": {"symbol": "TKN"},
-            "tokenDecimal": "18"
+            "tokenDecimal": "18",
         },
         {
             "hash": "0xtokenhash2",
@@ -395,9 +396,9 @@ MOCK_TOKEN_TRANSFERS_RESPONSE = {
             "to": {"hash": "0xtoaddress4"},
             "total": {"value": "1000"},
             "token": {"symbol": "MTK"},
-            "tokenDecimal": "6"
-        }
-    ]
+            "tokenDecimal": "6",
+        },
+    ],
 }
 
 # Mock response with one valid and one invalid item (missing 'hash')
@@ -412,7 +413,7 @@ MOCK_INVALID_ITEM_RESPONSE = {
             "to": {"hash": "0xtoaddress_valid"},
             "value": "1000000000000000000",
             "gasUsed": "21000",
-            "gasPrice": "50000000000"
+            "gasPrice": "50000000000",
         },
         {
             # Missing 'hash'
@@ -421,21 +422,22 @@ MOCK_INVALID_ITEM_RESPONSE = {
             "to": {"hash": "0xtoaddress_invalid"},
             "value": "2000000000000000000",
             "gasUsed": "21000",
-            "gasPrice": "50000000000"
-        }
-    ]
+            "gasPrice": "50000000000",
+        },
+    ],
 }
 
 # Mock response where the 'result' is not a list
 MOCK_INVALID_RESULT_RESPONSE = {
     "status": "0",
     "message": "Error",
-    "result": "Invalid API key"
+    "result": "Invalid API key",
 }
 
 DUMMY_ENDPOINT = "http://fake-api.com/data"
 
-@patch('fetch_blockchain_data.requests.get')
+
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_parses_transactions_correctly(mock_get):
     """
     Verify that fetch_data correctly parses a successful transaction API response
@@ -458,7 +460,8 @@ def test_fetch_data_parses_transactions_correctly(mock_get):
     mock_get.assert_called_once_with(DUMMY_ENDPOINT, timeout=10)
     mock_response.raise_for_status.assert_called_once()
 
-@patch('fetch_blockchain_data.requests.get')
+
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_parses_token_transfers_correctly(mock_get):
     """
     Verify that fetch_data correctly parses a successful token transfer API response
@@ -483,7 +486,8 @@ def test_fetch_data_parses_token_transfers_correctly(mock_get):
     mock_get.assert_called_once_with(DUMMY_ENDPOINT, timeout=10)
     mock_response.raise_for_status.assert_called_once()
 
-@patch('fetch_blockchain_data.requests.get')
+
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_handles_api_error_gracefully(mock_get):
     """
     Verify that fetch_data returns an empty list when the API call
@@ -499,7 +503,8 @@ def test_fetch_data_handles_api_error_gracefully(mock_get):
     assert result == []
     mock_get.assert_called()
 
-@patch('fetch_blockchain_data.requests.get')
+
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_handles_validation_error(mock_get, caplog):
     """
     Verify that fetch_data logs a warning for validation errors but continues
@@ -521,7 +526,7 @@ def test_fetch_data_handles_validation_error(mock_get, caplog):
     assert "Validation error for item" in caplog.text
 
 
-@patch('fetch_blockchain_data.requests.get')
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
     """
     Verify that fetch_data returns an empty list and logs an error when the
@@ -539,9 +544,13 @@ def test_fetch_data_handles_invalid_result_format(mock_get, caplog):
 
     # Assert
     assert result == []
-    assert f"API response for {DUMMY_ENDPOINT} does not contain a list in 'result'" in caplog.text
+    assert (
+        f"API response for {DUMMY_ENDPOINT} does not contain a list in 'result'"
+        in caplog.text
+    )
 
-@patch('fetch_blockchain_data.requests.get')
+
+@patch("fetch_blockchain_data.requests.get")
 def test_fetch_data_handles_no_transactions_found(mock_get, caplog):
     """
     Verify that fetch_data returns an empty list and does NOT log an error
@@ -552,7 +561,7 @@ def test_fetch_data_handles_no_transactions_found(mock_get, caplog):
     mock_response.json.return_value = {
         "status": "0",
         "message": "No transactions found",
-        "result": []
+        "result": [],
     }
     mock_response.raise_for_status = MagicMock()
     mock_get.return_value = mock_response
@@ -566,7 +575,9 @@ def test_fetch_data_handles_no_transactions_found(mock_get, caplog):
     assert "API error" not in caplog.text
 
 
-def test_fetch_data_handles_no_transactions_found_with_no_transactions(mocked_responses, caplog):
+def test_fetch_data_handles_no_transactions_found_with_no_transactions(
+    mocked_responses, caplog
+):
     """
     Verify that fetch_data handles Etherscan's 'No transactions found' response
     gracefully without logging an error.
@@ -586,7 +597,10 @@ def test_fetch_data_handles_no_transactions_found_with_no_transactions(mocked_re
 
     assert result == []
     # Ensure no error was logged for this specific case
-    assert f"API response for {mock_url} does not contain a list in 'result'" not in caplog.text
+    assert (
+        f"API response for {mock_url} does not contain a list in 'result'"
+        not in caplog.text
+    )
 
 
 def test_adapter_pagination(mocked_responses):

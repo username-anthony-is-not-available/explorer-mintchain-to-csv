@@ -1,4 +1,3 @@
-
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -98,7 +97,9 @@ def test_cli_json_output(responses):
         ]
 
         # Assert that the content of the output file is correct
-        assert data == expected_data, f"The output JSON data does not match the expected data. Actual: {data}"
+        assert data == expected_data, (
+            f"The output JSON data does not match the expected data. Actual: {data}"
+        )
 
     finally:
         # Clean up the created file
