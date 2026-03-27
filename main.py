@@ -28,7 +28,7 @@ from explorer_adapters import (
 )
 from json_writer import write_transaction_data_to_json
 from koinly_writer import write_transaction_data_to_koinly_csv
-from models import Transaction
+from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 
 # Load environment variables from .env file

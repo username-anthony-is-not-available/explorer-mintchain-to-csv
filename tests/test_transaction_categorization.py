@@ -105,6 +105,13 @@ def test_categorize_mintchain_swap_transaction(mintchain_swap_transaction: RawTr
     label = categorize_transaction(mintchain_swap_transaction)
     assert label == "swap"
 
+def test_categorize_pancakeswap_mintchain_transaction() -> None:
+    """Test that a PancakeSwap transaction on Mintchain is labeled as a 'swap'."""
+    pancakeswap_router = "0x13f4395944a2353e81E2975988E65A20DA192BC7"
+    transaction = create_mock_raw_transaction(pancakeswap_router)
+    label = categorize_transaction(transaction, chain='mintchain')
+    assert label == "swap"
+
 def test_categorize_mint_transaction(mint_transaction: RawTransaction) -> None:
     """Test that a mint transaction is labeled as 'mint'."""
     label = categorize_transaction(mint_transaction)
