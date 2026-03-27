@@ -19,8 +19,8 @@ DEFI_ROUTERS = {
     },
     "mintchain": {
         "0xe55b0367a178d9cf5f03354fd06904a8b3bb682a",  # Mintchain SwapRouter
-        "0x13f4395944a2353e81E2975988E65A20DA192BC7",  # PancakeSwap V3 Router
-        "0x1b81D7788448729965a3BC5573479e00A9075306",  # MintChain DEX Router
+        "0x13f4395944a2353e81e2975988e65a20da192bc7",  # PancakeSwap V3 Router
+        "0x1b81d7788448729965a3bc5573479e00a9075306",  # MintChain DEX Router
     }
 }
 
