@@ -1,6 +1,6 @@
 import pytest
-from models import Address, RawTokenTransfer, RawTransaction, Token, Total
-from transaction_categorization import categorize_transaction
+from models import Address, RawTokenTransfer, RawTransaction, Token, Total, Transaction
+from transaction_categorization import categorize_transaction, detect_swap_from_transfers
 
 # Mock data for testing
 def create_mock_raw_transaction(to_address: str) -> RawTransaction:
@@ -203,3 +203,49 @@ def test_categorize_as_staking_mintchain():
     }
     transaction = RawTransaction.model_validate(raw_trx_data)
     assert categorize_transaction(transaction, "mintchain") == "staking"
+
+def test_detect_swap_from_transfers_no_swap():
+    """Test that detect_swap_from_transfers returns empty for non-swap transactions."""
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1672531200,
+        "Sent Amount": "1.0",
+        "Sent Currency": "ETH",
+        "Description": "transfer",
+        "TxHash": "0x123"
+    })
+    assert detect_swap_from_transfers([tx1]) == ""
+
+def test_detect_swap_from_transfers_swap():
+    """Test that detect_swap_from_transfers returns 'swap' for swap transactions."""
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1672531200,
+        "Sent Amount": "1.0",
+        "Sent Currency": "ETH",
+        "Description": "transfer",
+        "TxHash": "0x123"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1672531200,
+        "Received Amount": "100.0",
+        "Received Currency": "USDC",
+        "Description": "token_transfer",
+        "TxHash": "0x123"
+    })
+    assert detect_swap_from_transfers([tx1, tx2]) == "swap"
+
+def test_detect_swap_from_transfers_partial_swap():
+    """Test that detect_swap_from_transfers returns 'swap' for swap transactions where one tx has both."""
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1672531200,
+        "Sent Amount": "1.0",
+        "Sent Currency": "ETH",
+        "Received Amount": "100.0",
+        "Received Currency": "USDC",
+        "Description": "merged_swap",
+        "TxHash": "0x123"
+    })
+    assert detect_swap_from_transfers([tx1]) == "swap"

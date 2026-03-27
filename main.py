@@ -16,6 +16,7 @@ from cointracker_writer import write_transaction_data_to_cointracker_csv
 from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalculator_csv
 from csv_writer import write_transaction_data_to_csv
 from extract_transaction_data import extract_transaction_data
+from transaction_categorization import detect_swap_from_transfers
 from explorer_adapters import (
     ArbiscanAdapter,
     BasescanAdapter,
@@ -209,8 +210,27 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
             # If couldn't merge with any existing, add as a new transaction for this hash
             tx_hash_to_merged[tx_hash].append(tx.model_copy())
 
-    # Flatten the map back into a list
+    # Flatten the map back into a list and apply swap detection heuristic
     for tx_list in tx_hash_to_merged.values():
+        # Heuristically detect swaps based on the presence of both sent and received assets
+        swap_label = detect_swap_from_transfers(tx_list)
+
+        for merged_tx in tx_list:
+            # If the transaction is already marked with a high-priority label, keep it.
+            # Otherwise, apply the swap label if detected.
+            current_label = merged_tx.label
+            if (
+                current_label
+                not in [
+                    TransactionType.BRIDGE.value,
+                    TransactionType.STAKING.value,
+                    TransactionType.MINT.value,
+                    TransactionType.BURN.value,
+                    TransactionType.SWAP.value,
+                ]
+                and swap_label
+            ):
+                merged_tx.label = swap_label
         merged_list.extend(tx_list)
 
     return merged_list
