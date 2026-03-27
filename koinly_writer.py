@@ -10,11 +10,13 @@ KOINLY_LABEL_MAP = {
     TransactionType.BRIDGE.value: "Bridge",
     TransactionType.MINT.value: "reward",
     TransactionType.BURN.value: "lost",
+    TransactionType.COST.value: "cost",
 }
 
 MINTCHAIN_LABEL_MAP = {
     TransactionType.TRANSFER.value: "",
     TransactionType.TOKEN_TRANSFER.value: "",
+    TransactionType.STAKING.value: "reward",
 }
 
 

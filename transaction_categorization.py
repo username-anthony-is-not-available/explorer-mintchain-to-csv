@@ -36,6 +36,12 @@ BRIDGE_CONTRACTS = {
     }
 }
 
+STAKING_CONTRACTS = {
+    "mintchain": {
+        "0x2e8697157321681285227092892994469e38f921",  # MintPool sMINT (placeholder example)
+    }
+}
+
 AnyRawTransaction = Union[RawTransaction, RawTokenTransfer, RawNFTTransfer, Raw1155Transfer]
 
 def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintchain') -> str:
@@ -55,11 +61,14 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
     # Get the set of DeFi routers for the specified chain
     chain_routers = DEFI_ROUTERS.get(chain, set())
     chain_bridge_contracts = BRIDGE_CONTRACTS.get(chain, set())
+    chain_staking_contracts = STAKING_CONTRACTS.get(chain, set())
 
     if to_address in chain_routers:
         return TransactionType.SWAP.value
     if to_address in chain_bridge_contracts or from_address in chain_bridge_contracts:
         return TransactionType.BRIDGE.value
+    if to_address in chain_staking_contracts or from_address in chain_staking_contracts:
+        return TransactionType.STAKING.value
 
     # Detect Minting (from 0x00...00)
     if from_address == "0x0000000000000000000000000000000000000000":
@@ -77,6 +86,11 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
         return TransactionType.TOKEN_TRANSFER.value
 
     if isinstance(transaction, RawTransaction):
+        # Detect Cost (value 0, but gas was paid)
+        if getattr(transaction, 'value', '0') == '0' and \
+           getattr(transaction, 'gasPrice', None) and \
+           getattr(transaction, 'gasUsed', None):
+            return TransactionType.COST.value
         return TransactionType.TRANSFER.value
 
     return "" # Default for simple transfers, deposits, withdrawals.
