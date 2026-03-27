@@ -1,4 +1,5 @@
-from typing import Union
+from decimal import Decimal
+from typing import List, Union
 from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction, TransactionType
 
 # A sample list of DeFi router addresses, organized by chain
@@ -94,3 +95,28 @@ def categorize_transaction(transaction: AnyRawTransaction, chain: str = 'mintcha
         return TransactionType.TRANSFER.value
 
     return "" # Default for simple transfers, deposits, withdrawals.
+
+
+def detect_swap_from_transfers(transactions: List) -> str:
+    """
+    Heuristic to detect a swap based on the presence of both sent and received assets
+    within a single transaction hash.
+    """
+    sent_assets = False
+    received_assets = False
+
+    for tx in transactions:
+        # Check if it has a sent amount
+        sent_amount = getattr(tx, 'sent_amount', None)
+        if sent_amount and Decimal(str(sent_amount)) > 0:
+            sent_assets = True
+
+        # Check if it has a received amount
+        received_amount = getattr(tx, 'received_amount', None)
+        if received_amount and Decimal(str(received_amount)) > 0:
+            received_assets = True
+
+    if sent_assets and received_assets:
+        return TransactionType.SWAP.value
+
+    return ""
