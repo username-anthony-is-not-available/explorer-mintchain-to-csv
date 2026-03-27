@@ -173,3 +173,33 @@ def test_categorize_as_bridge_incoming():
     }
     transaction = RawTransaction.model_validate(raw_trx_data)
     assert categorize_transaction(transaction, "mintchain") == "bridge"
+
+def test_categorize_as_cost():
+    """Test that a 0-value transaction with gas is categorized as cost."""
+    raw_trx_data = {
+        "hash": "0xcost",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0xuser"},
+        "to": {"hash": "0xcontract"},
+        "value": "0",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    }
+    transaction = RawTransaction.model_validate(raw_trx_data)
+    # Ensure it's not a swap or bridge first
+    assert categorize_transaction(transaction, "mintchain") == "cost"
+
+def test_categorize_as_staking_mintchain():
+    """Test that a transaction to/from a staking contract is categorized as staking."""
+    staking_address = "0x2e8697157321681285227092892994469e38f921"
+    raw_trx_data = {
+        "hash": "0xstaking",
+        "timeStamp": "1672531200",
+        "from": {"hash": "0xuser"},
+        "to": {"hash": staking_address},
+        "value": "1000000000000000000",
+        "gasUsed": "21000",
+        "gasPrice": "50000000000",
+    }
+    transaction = RawTransaction.model_validate(raw_trx_data)
+    assert categorize_transaction(transaction, "mintchain") == "staking"

@@ -14,6 +14,7 @@ class TransactionType(Enum):
     STAKING = "staking"
     AIRDROP = "airdrop"
     MINING = "mining"
+    COST = "cost"
 
 
 class Address(BaseModel):
