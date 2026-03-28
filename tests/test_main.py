@@ -46,6 +46,7 @@ def mock_adapter():
                     "to": {"hash": "test_wallet"},
                     "hash": "0x2",
                     "tokenDecimal": "18",
+                        "contractAddress": "0x2",
                 }
             )
         ]

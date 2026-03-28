@@ -25,6 +25,7 @@ def create_mock_raw_token_transfer(to_address: str, token_decimal: str) -> RawTo
         "total": {"value": "100"},
         "token": {"symbol": "TKN"},
         "tokenDecimal": token_decimal,
+            "contractAddress": "0xtkn",
     })
 
 # Test cases

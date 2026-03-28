@@ -10,6 +10,7 @@ from models import (
     Transaction,
 )
 from transaction_categorization import categorize_transaction
+from price_service import get_token_price
 
 AnyRawTransaction = Union[
     RawTransaction, RawTokenTransfer, RawNFTTransfer, Raw1155Transfer
@@ -107,6 +108,33 @@ def extract_transaction_data(
             if is_receiver:
                 data["Received Amount"] = trx.tokenValue
                 data["Received Currency"] = trx.tokenSymbol
+
+        # Fetch and calculate net worth
+        price = None
+        amount_to_value = None
+        currency_to_value = None
+
+        if data["Sent Amount"] and data["Sent Currency"]:
+            amount_to_value = data["Sent Amount"]
+            currency_to_value = data["Sent Currency"]
+            contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
+            price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
+        elif data["Received Amount"] and data["Received Currency"]:
+            amount_to_value = data["Received Amount"]
+            currency_to_value = data["Received Currency"]
+            contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
+            price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
+
+        if price is not None and amount_to_value:
+            try:
+                net_worth = Decimal(amount_to_value) * price
+                formatted_net_worth = format(net_worth, "f")
+                if "." in formatted_net_worth:
+                    formatted_net_worth = formatted_net_worth.rstrip("0").rstrip(".")
+                data["Net Worth Amount"] = formatted_net_worth if formatted_net_worth != "" else "0"
+                data["Net Worth Currency"] = "USD"
+            except (ValueError, ArithmeticError):
+                pass
 
         extracted_data.append(Transaction.model_validate(data))
 
