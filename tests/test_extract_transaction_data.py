@@ -1,9 +1,13 @@
+from decimal import Decimal
+from unittest.mock import patch
 from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction, Transaction, Address, Token, Total
 from extract_transaction_data import extract_transaction_data
 
 WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
 
-def test_extract_transaction_data_regular_transaction_sent():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_regular_transaction_sent(mock_get_price):
+    mock_get_price.return_value = Decimal("2000.0")
     raw_trx_data = {
         "hash": "0xabc",
         "from": {"hash": WALLET_ADDRESS},
@@ -25,7 +29,9 @@ def test_extract_transaction_data_regular_transaction_sent():
     assert trx.fee_currency == "ETH"
     assert trx.received_amount is None
 
-def test_extract_transaction_data_regular_transaction_received():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_regular_transaction_received(mock_get_price):
+    mock_get_price.return_value = Decimal("2000.0")
     raw_trx_data = {
         "hash": "0xabc",
         "from": {"hash": "0x456"},
@@ -43,8 +49,12 @@ def test_extract_transaction_data_regular_transaction_received():
     assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
+    assert trx.net_worth_amount == "5000"
+    assert trx.net_worth_currency == "USD"
 
-def test_extract_nft_transfer_data():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_nft_transfer_data(mock_get_price):
+    mock_get_price.return_value = None
     raw_data = [
         RawNFTTransfer.model_validate({
             'hash': '0xnft',
@@ -62,7 +72,9 @@ def test_extract_nft_transfer_data():
     assert extracted[0].sent_currency == 'NFT'
     assert extracted[0].description == 'nft_transfer'
 
-def test_extract_1155_transfer_data():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_1155_transfer_data(mock_get_price):
+    mock_get_price.return_value = Decimal("10.0")
     raw_data = [
         Raw1155Transfer.model_validate({
             'hash': '0x1155',
@@ -81,7 +93,9 @@ def test_extract_1155_transfer_data():
     assert extracted[0].received_currency == '1155'
     assert extracted[0].description == '1155_transfer'
 
-def test_extract_transaction_data_polygon_native():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_polygon_native(mock_get_price,):
+    mock_get_price.return_value = Decimal("0.8")
     raw_trx_data = {
         "hash": "0xpoly",
         "from": {"hash": WALLET_ADDRESS},
@@ -98,7 +112,9 @@ def test_extract_transaction_data_polygon_native():
     assert trx.sent_currency == "MATIC"
     assert trx.fee_currency == "MATIC"
 
-def test_extract_transaction_data_fee_precision():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_fee_precision(mock_get_price):
+    mock_get_price.return_value = Decimal("2000.0")
     # Test case with very small gas price to check for precision issues
     raw_trx_data = {
         "hash": "0xabc",
@@ -122,7 +138,9 @@ def test_extract_transaction_data_fee_precision():
     # 617,283,945,000,000 / 1e18 = 0.000617283945
     assert transactions[0].fee_amount == "0.000617283945"
 
-def test_extract_transaction_data_token_transfer_sent():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_token_transfer_sent(mock_get_price):
+    mock_get_price.return_value = Decimal("1.0")
     raw_token_trx_data = {
         "hash": "0xdef",
         "from": {"hash": WALLET_ADDRESS},
@@ -130,7 +148,8 @@ def test_extract_transaction_data_token_transfer_sent():
         "timeStamp": "1672531201",
         "total": {"value": "2000000"},
         "token": {"symbol": "USDC"},
-        "tokenDecimal": "6"
+        "tokenDecimal": "6",
+        "contractAddress": "0xusdc"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
@@ -140,8 +159,12 @@ def test_extract_transaction_data_token_transfer_sent():
     assert trx.sent_currency == "USDC"
     assert trx.received_amount is None
     assert trx.fee_amount is None
+    assert trx.net_worth_amount == "2"
+    assert trx.net_worth_currency == "USD"
 
-def test_extract_transaction_data_token_transfer_received():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_token_transfer_received(mock_get_price):
+    mock_get_price.return_value = Decimal("0.5")
     raw_token_trx_data = {
         "hash": "0xdef",
         "from": {"hash": "0x456"},
@@ -149,7 +172,8 @@ def test_extract_transaction_data_token_transfer_received():
         "timeStamp": "1672531201",
         "total": {"value": "500000000000000000000"}, # 500 TKN
         "token": {"symbol": "TKN"},
-        "tokenDecimal": "18"
+        "tokenDecimal": "18",
+        "contractAddress": "0xtkn"
     }
     raw_token_trx = RawTokenTransfer.model_validate(raw_token_trx_data)
     transactions = extract_transaction_data([raw_token_trx], "token_transfers", WALLET_ADDRESS, "mintchain")
@@ -160,7 +184,9 @@ def test_extract_transaction_data_token_transfer_received():
     assert trx.sent_amount is None
     assert trx.fee_amount is None
 
-def test_extract_transaction_data_internal_transaction_sent():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_internal_transaction_sent(mock_get_price):
+    mock_get_price.return_value = Decimal("2000.0")
     # Internal transactions from Etherscan usually don't have gasPrice
     raw_trx_data = {
         "hash": "0xghi",
@@ -183,7 +209,9 @@ def test_extract_transaction_data_internal_transaction_sent():
     assert trx.fee_amount is None # Fee is None because gasPrice is missing
     assert trx.received_amount is None
 
-def test_extract_transaction_data_internal_transaction_received():
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_internal_transaction_received(mock_get_price):
+    mock_get_price.return_value = Decimal("2000.0")
     raw_trx_data = {
         "hash": "0xghi",
         "from": {"hash": "0x456"},

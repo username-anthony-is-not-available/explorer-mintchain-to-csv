@@ -113,6 +113,7 @@ def test_adapter_get_token_transfers_success(mocked_responses):
                     "total": {"value": "200"},
                     "token": {"symbol": "TKN"},
                     "tokenDecimal": "18",
+                    "contractAddress": "0xtkn",
                 }
             ]
         },
@@ -440,6 +441,7 @@ MOCK_TOKEN_TRANSFERS_RESPONSE = {
             "total": {"value": "500"},
             "token": {"symbol": "TKN"},
             "tokenDecimal": "18",
+            "contractAddress": "0xtkn1",
         },
         {
             "hash": "0xtokenhash2",
@@ -449,6 +451,7 @@ MOCK_TOKEN_TRANSFERS_RESPONSE = {
             "total": {"value": "1000"},
             "token": {"symbol": "MTK"},
             "tokenDecimal": "6",
+            "contractAddress": "0xmtk2",
         },
     ],
 }

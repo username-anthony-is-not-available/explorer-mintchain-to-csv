@@ -27,5 +27,17 @@ NATIVE_CURRENCIES = {
     'polygon': 'MATIC',
 }
 
+# Coingecko configuration
+COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
+COINGECKO_PLATFORM_MAP = {
+    'ethereum': 'ethereum',
+    'etherscan': 'ethereum',
+    'polygon': 'polygon-pos',
+    'basescan': 'base',
+    'arbiscan': 'arbitrum-one',
+    'optimism': 'optimistic-ethereum',
+    'mintchain': 'mint-blockchain',  # Placeholder if not officially supported yet
+}
+
 # Timeout value (in seconds)
 TIMEOUT: int = 10

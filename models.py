@@ -47,6 +47,7 @@ class RawTokenTransfer(BaseModel):
     total: Total
     token: Token
     tokenDecimal: str
+    contractAddress: str
 
 
 class RawNFTTransfer(BaseModel):
