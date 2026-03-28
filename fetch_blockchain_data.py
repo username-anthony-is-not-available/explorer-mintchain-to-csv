@@ -72,12 +72,18 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         if status == "0" and message == "No transactions found":
             return []
 
-        result_list = data.get("result")
+        # Check for data in 'result' (Etherscan) or 'items' (Routescan V2)
+        if "result" in data:
+            result_list = data.get("result")
+        elif "items" in data:
+            result_list = data.get("items")
+        else:
+            result_list = None
 
         # Handle malformed result formats
         if not isinstance(result_list, list):
             logging.error(
-                f"API response for {endpoint} does not contain a list in 'result': {data}"
+                f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
             )
             return []
 

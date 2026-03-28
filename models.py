@@ -1,5 +1,5 @@
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+from pydantic import BaseModel, Field, model_validator, AliasChoices
 from enum import Enum
 
 
@@ -20,6 +20,13 @@ class TransactionType(Enum):
 class Address(BaseModel):
     hash: str
 
+    @model_validator(mode="before")
+    @classmethod
+    def handle_raw_address(cls, data: Any) -> Any:
+        if isinstance(data, str):
+            return {"hash": data}
+        return data
+
 
 class Token(BaseModel):
     symbol: str
@@ -30,12 +37,12 @@ class Total(BaseModel):
 
 
 class RawTransaction(BaseModel):
-    hash: str
+    hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
     timeStamp: str
     from_address: Address = Field(..., alias="from")
     to_address: Address = Field(..., alias="to")
     value: str
-    gasUsed: str
+    gasUsed: str = Field(..., validation_alias=AliasChoices("gasUsed", "gas"))
     gasPrice: Optional[str] = None
 
 
