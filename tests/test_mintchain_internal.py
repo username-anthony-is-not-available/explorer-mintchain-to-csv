@@ -1,13 +1,11 @@
 import responses
-import logging
 from explorer_adapters import MintchainAdapter
-from models import RawTransaction
 
 WALLET_ADDRESS = "0xe55b0367a178d9cf5f03354fd06904a8b3bb682a"
 CHAIN = "mintchain"
 
 @responses.activate
-def test_mintchain_internal_transactions_with_items_and_raw_addresses():
+def test_mintchain_internal_transactions_with_result_key_and_raw_addresses():
     adapter = MintchainAdapter(CHAIN)
     base_url = "https://api.routescan.io/v2/network/mainnet/evm/185/etherscan"
     mock_url = f"{base_url}?module=account&action=txlistinternal&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&page=1&offset=10000"
