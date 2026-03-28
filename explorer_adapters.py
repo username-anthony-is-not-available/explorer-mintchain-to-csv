@@ -201,6 +201,7 @@ class ArbiscanAdapter(EtherscanAdapter):
 
 
 class MintchainAdapter(EtherscanAdapter):
+    """Adapter for MintChain explorer using Routescan V2 API."""
     pass
 
 
