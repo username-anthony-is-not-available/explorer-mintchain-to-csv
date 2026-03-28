@@ -19,9 +19,6 @@ from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
 
-# Global session for connection pooling
-session = requests.Session()
-
 
 def wait_retry_after_or_exponential(retry_state):
     """
@@ -72,13 +69,18 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         if status == "0" and message == "No transactions found":
             return []
 
+        # Try to find the result list in 'result' (Etherscan) or 'items' (Routescan V2)
         result_list = data.get("result")
+        if result_list is None:
+            result_list = data.get("items")
 
         # Handle malformed result formats
-        if not isinstance(result_list, list):
-            logging.error(
-                f"API response for {endpoint} does not contain a list in 'result': {data}"
-            )
+        if result_list is None or not isinstance(result_list, list):
+            # Only log an error if we didn't explicitly get a 'No transactions found' message
+            if not (status == "0" and message == "No transactions found"):
+                logging.error(
+                    f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
+                )
             return []
 
         validated_data: List[T] = []
