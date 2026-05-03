@@ -14,12 +14,18 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ExplorerAdapter(ABC):
-    def __init__(self, chain: str):
+    def __init__(self, chain: str, rpc_url: Optional[str] = None):
         self.chain = chain
+        self.rpc_url = rpc_url or self._get_rpc_url_from_env()
+
+    def _get_rpc_url_from_env(self) -> Optional[str]:
+        """Check for RPC URL in environment variable."""
+        env_var = f"RPC_URL_{self.chain.upper()}"
+        return os.getenv(env_var)
 
     def _get_explorer_api_url(self, params: Dict[str, Any]) -> str:
         """Constructs the full API URL for a given chain and parameters."""
-        base_url = EXPLORER_URLS.get(self.chain)
+        base_url = self.rpc_url or EXPLORER_URLS.get(self.chain)
         if not base_url:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
