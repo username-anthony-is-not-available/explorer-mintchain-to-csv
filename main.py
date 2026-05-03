@@ -28,6 +28,7 @@ from explorer_adapters import (
 )
 from json_writer import write_transaction_data_to_json
 from koinly_writer import write_transaction_data_to_koinly_csv
+from zenledger_writer import write_transaction_data_to_zenledger_csv
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 
@@ -409,6 +410,8 @@ def process_single_wallet(
             write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
         elif output_format == "koinly":
             write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
+        elif output_format == "zenledger":
+            write_transaction_data_to_zenledger_csv(output_file, output_data)
 
         logging.info(
             f"({index + 1}/{total_count}) "
@@ -476,9 +479,9 @@ def main() -> None:
     parser.add_argument(
         "--format",
         type=str,
-        choices=["csv", "json", "cointracker", "cryptotaxcalculator", "koinly"],
+        choices=["csv", "json", "cointracker", "cryptotaxcalculator", "koinly", "zenledger"],
         default="csv",
-        help="Output format (csv, json, cointracker, cryptotaxcalculator, or koinly).",
+        help="Output format (csv, json, cointracker, cryptotaxcalculator, koinly, or zenledger).",
     )
     parser.add_argument(
         "--chain",
