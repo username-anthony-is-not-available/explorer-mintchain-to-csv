@@ -69,7 +69,9 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         if status == "0" and message == "No transactions found":
             return []
 
-        # Try to find the result list in 'result' (Etherscan) or 'items' (Routescan V2)
+        # Check for data in 'result' (standard Etherscan) or 'items' (Routescan V2/Blockscout).
+        # Routescan V2 APIs, used by chains like MintChain, return the transaction list
+        # in an 'items' key instead of the Etherscan-standard 'result' key.
         result_list = data.get("result")
         if result_list is None:
             result_list = data.get("items")

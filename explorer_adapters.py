@@ -201,25 +201,8 @@ class ArbiscanAdapter(EtherscanAdapter):
 
 
 class MintchainAdapter(EtherscanAdapter):
-    def get_internal_transactions(
-        self, wallet_address: str, startblock: int = 0, endblock: int = 99999999
-    ) -> List[RawTransaction]:
-        """
-        Fetches internal transactions for MintChain using the Routescan V2 internal-transactions endpoint.
-        """
-        # Note: Routescan V2 sometimes uses a different base path for some endpoints.
-        # But here we try to use the Etherscan-compatible action first as it's already well-integrated.
-        # If that fails or is incomplete, we could fallback to the /internal-transactions REST endpoint.
-        # Given the task is to ensure it works, we keep it explicit here.
-        params = {
-            "module": "account",
-            "action": "txlistinternal",
-            "address": wallet_address,
-            "startblock": startblock,
-            "endblock": endblock,
-            "sort": "asc",
-        }
-        return self._fetch_all_pages(params, RawTransaction)
+    """Adapter for MintChain explorer using Routescan V2 API."""
+    pass
 
 
 class OptimismAdapter(EtherscanAdapter):

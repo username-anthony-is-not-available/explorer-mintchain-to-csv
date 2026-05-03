@@ -8,8 +8,8 @@ A tool designed to streamline the process of exporting blockchain transaction da
 
 ## Features
 
-- Fetches transactions, token transfers, and internal transactions from multiple blockchain explorer APIs.
-- Supports multiple blockchains: Etherscan (Ethereum), Basescan (Base), Arbiscan (Arbitrum), and MintChain.
+- Fetches transactions, token transfers, and internal transactions (including MintChain contract calls) from multiple blockchain explorer APIs.
+- Supports multiple blockchains: Etherscan (Ethereum), Basescan (Base), Arbiscan (Arbitrum), and MintChain (with full support for Routescan V2 internal traces).
 - Combines and sorts all transaction data by timestamp.
 - Exports the transaction data to multiple formats: generic CSV, JSON, Koinly, CoinTracker, and CryptoTaxCalculator.
 - Filters transactions by date range.
