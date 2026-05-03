@@ -1,5 +1,6 @@
 import logging
-from typing import List, Type, TypeVar
+import os
+from typing import List, Type, TypeVar, Any, Sequence, Dict
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -12,6 +13,7 @@ from tenacity import (
 )
 
 from config import TIMEOUT
+from cache_manager import cache_manager
 
 # Initialize a global session for connection pooling
 session = requests.Session()
@@ -50,6 +52,47 @@ def _log_and_return_empty(retry_state):
     return []
 
 
+def _process_response_data(data: Dict[str, Any], model: Type[T], endpoint: str) -> List[T]:
+    """
+    Processes the JSON response from the explorer API.
+    """
+    status = data.get("status")
+    message = data.get("message")
+
+    # Handle Etherscan-style empty responses gracefully
+    if status == "0":
+        if message == "No transactions found":
+            return []
+        if "rate limit" in str(data.get("result", "")).lower() or "rate limit" in str(message).lower():
+            logging.warning(f"API rate limit reached for {endpoint}. Triggering retry...")
+            raise RequestException("API rate limit reached")
+
+    # Check for data in 'result' (standard Etherscan) or 'items' (Routescan V2/Blockscout).
+    result_list = data.get("result")
+    if result_list is None:
+        result_list = data.get("items")
+
+    # Handle malformed result formats
+    if result_list is None or not isinstance(result_list, list):
+        if not (status == "0" and message == "No transactions found"):
+            logging.error(
+                f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
+            )
+        return []
+
+    validated_data: List[T] = []
+    for item in result_list:
+        try:
+            validated_item = model.model_validate(item)
+            validated_data.append(validated_item)
+        except ValidationError as e:
+            logging.warning(
+                f"Validation error for item in {endpoint}: {e}. Item: {item}"
+            )
+
+    return validated_data
+
+
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_retry_after_or_exponential,
@@ -57,52 +100,32 @@ def _log_and_return_empty(retry_state):
     retry=retry_if_exception_type(RequestException),
 )
 def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
+    # Check cache first
+    cached_data = cache_manager.get_response(endpoint)
+    if cached_data:
+        logging.debug(f"Using cached response for {endpoint}")
+        try:
+            return _process_response_data(cached_data, model, endpoint)
+        except RequestException:
+            # If cached data somehow triggers a rate limit exception (unlikely), 
+            # treat it as a cache miss or error.
+            pass
+
     try:
         response = session.get(endpoint, timeout=TIMEOUT)
         response.raise_for_status()
         data = response.json()
 
-        status = data.get("status")
-        message = data.get("message")
+        # Only cache successful "OK" responses with actual results
+        if data.get("status") == "1":
+            cache_manager.set_response(endpoint, data)
 
-        # Handle Etherscan-style empty responses gracefully
-        if status == "0":
-            if message == "No transactions found":
-                return []
-            if "rate limit" in str(data.get("result", "")).lower() or "rate limit" in str(message).lower():
-                logging.warning(f"API rate limit reached for {endpoint}. Triggering retry...")
-                raise RequestException("API rate limit reached", response=response)
-
-        # Check for data in 'result' (standard Etherscan) or 'items' (Routescan V2/Blockscout).
-        # Routescan V2 APIs, used by chains like MintChain, return the transaction list
-        # in an 'items' key instead of the Etherscan-standard 'result' key.
-        result_list = data.get("result")
-        if result_list is None:
-            result_list = data.get("items")
-
-        # Handle malformed result formats
-        if result_list is None or not isinstance(result_list, list):
-            # Only log an error if we didn't explicitly get a 'No transactions found' message
-            if not (status == "0" and message == "No transactions found"):
-                logging.error(
-                    f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
-                )
-            return []
-
-        validated_data: List[T] = []
-        for item in result_list:
-            try:
-                validated_item = model.model_validate(item)
-                validated_data.append(validated_item)
-            except ValidationError as e:
-                logging.warning(
-                    f"Validation error for item in {endpoint}: {e}. Item: {item}"
-                )
-
-        return validated_data
+        return _process_response_data(data, model, endpoint)
 
     except Exception as e:
         if isinstance(e, RequestException):
             raise  # Reraise RequestException to be handled by tenacity
         logging.error(f"An unexpected error occurred: {str(e)}")
         return []
+
+from typing import Dict
