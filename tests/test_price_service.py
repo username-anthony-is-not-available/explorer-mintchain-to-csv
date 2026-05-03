@@ -2,7 +2,7 @@ import pytest
 import responses
 from decimal import Decimal
 from unittest.mock import patch
-from price_service import get_token_price, _price_cache
+from price_service import get_token_price, get_defillama_price, _price_cache
 
 @pytest.fixture
 def mocked_responses():
@@ -116,4 +116,79 @@ def test_cache_none_result(mocked_responses):
     # Second call should use cache (return None without another API call)
     price_cached = get_token_price(chain, timestamp)
     assert price_cached is None
+    assert len(mocked_responses.calls) == 1
+
+def test_get_defillama_native_price(mocked_responses):
+    """Test fetching native coin price via DefiLlama."""
+    _price_cache.clear()
+    chain = "ethereum"
+    timestamp = 1672531200  # 2023-01-01
+    symbol = "ETH"
+    token_id = "ethereum:0x0000000000000000000000000000000000000000"
+    url = f"https://coins.llama.fi/prices/historical/{timestamp}"
+    
+    mocked_responses.add(
+        responses.GET,
+        url,
+        json={
+            "coins": {
+                token_id: {"price": 1200.50}
+            }
+        },
+        status=200,
+        match_querystring=False
+    )
+    
+    price = get_defillama_price(chain, timestamp, symbol=symbol)
+    assert price == Decimal("1200.5")
+    assert len(mocked_responses.calls) == 1
+
+def test_get_defillama_token_price(mocked_responses):
+    """Test fetching ERC-20 token price via DefiLlama."""
+    _price_cache.clear()
+    chain = "polygon"
+    timestamp = 1672531200
+    contract_address = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"  # USDC on Polygon
+    token_id = f"polygon-pos:{contract_address.lower()}"
+    url = f"https://coins.llama.fi/prices/historical/{timestamp}"
+    
+    mocked_responses.add(
+        responses.GET,
+        url,
+        json={
+            "coins": {
+                token_id: {"price": 1.0}
+            }
+        },
+        status=200,
+        match_querystring=False
+    )
+    
+    price = get_defillama_price(chain, timestamp, contract_address=contract_address)
+    assert price == Decimal("1.0")
+    assert len(mocked_responses.calls) == 1
+
+def test_get_token_price_defillama_source(mocked_responses):
+    """Test get_token_price uses DefiLlama when source='defillama'."""
+    _price_cache.clear()
+    chain = "ethereum"
+    timestamp = 1672531200
+    symbol = "ETH"
+    token_id = "ethereum:0x0000000000000000000000000000000000000000"
+    url = f"https://coins.llama.fi/prices/historical/{timestamp}"
+    
+    mocked_responses.add(
+        responses.GET,
+        url,
+        json={
+            "coins": {
+                token_id: {"price": 1200.50}
+            }
+        },
+        status=200,
+        match_querystring=False
+    )
+    
+    price = get_token_price(chain, timestamp, symbol=symbol, source="defillama")
+    assert price == Decimal("1200.5")
     assert len(mocked_responses.calls) == 1

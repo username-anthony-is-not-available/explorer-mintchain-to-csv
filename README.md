@@ -48,6 +48,8 @@ A tool designed to streamline the process of exporting blockchain transaction da
 
 This project supports a Docker-based workflow to simplify setup and ensure a consistent environment.
 
+### Quick Start
+
 1.  **Run the setup script:**
 
     This script will build the Docker image and prepare your environment.
@@ -63,6 +65,38 @@ This project supports a Docker-based workflow to simplify setup and ensure a con
     ```bash
     docker compose run --rm app --wallet YOUR_WALLET_ADDRESS
     ```
+
+    The `--rm` flag automatically removes the container after execution (one-off run).
+
+### Scheduled Runs
+
+To run the export on a schedule (e.g., daily for tax reporting), use a cron job or GitHub Actions:
+
+**Cron Example (Linux/macOS):**
+```bash
+0 0 * * * cd /path/to/explorer-mintchain-to-csv && docker compose run --rm app --wallet YOUR_WALLET_ADDRESS --format koinly
+```
+
+**GitHub Actions Example:**
+Create `.github/workflows/scheduled-export.yml`:
+```yaml
+name: Scheduled Transaction Export
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose run --rm app --wallet ${{ secrets.WALLET_ADDRESS }} --format koinly
+    env:
+      WALLET_ADDRESS: ${{ secrets.WALLET_ADDRESS }}
+```
+
+### Output
+
+Output files are saved to the `output/` directory on the host machine (mounted via docker-compose.yml volume).
 
 ## Testing
 
@@ -145,6 +179,10 @@ python main.py --address-file my_wallets.txt --chain arbiscan --format koinly
 ```
 
 The output files will be saved to the `output/` folder with a separate file for each wallet (e.g., `output/0xYourWalletAddressHere_transactions.csv`).
+
+## MintChain Tax Guide
+
+For detailed instructions on preparing MintChain transaction data for tax reporting (including Koinly uploads), see the [MintChain Tax Guide](MINTCHAIN_TAX_GUIDE.md).
 
 ## Troubleshooting
 

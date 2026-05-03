@@ -39,5 +39,24 @@ COINGECKO_PLATFORM_MAP = {
     'mintchain': 'mint-blockchain',  # Placeholder if not officially supported yet
 }
 
+# DefiLlama configuration
+DEFILLAMA_BASE_URL = "https://coins.llama.fi"
+DEFILLAMA_COIN_MAP = {
+    "ETH": "ethereum",
+    "MATIC": "polygon",
+    "BNB": "binancecoin",
+    "ARB": "arbitrum",
+    "OP": "optimism",
+}
+DEFILLAMA_PLATFORM_MAP = {
+    "ethereum": "ethereum",
+    "etherscan": "ethereum",
+    "polygon": "polygon-pos",
+    "basescan": "base",
+    "arbiscan": "arbitrum-one",
+    "optimism": "optimistic-ethereum",
+    "mintchain": "mint-blockchain",
+}
+
 # Timeout value (in seconds)
 TIMEOUT: int = 10

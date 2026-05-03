@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Type
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 from security_utils import decrypt_and_load_env
+from tqdm import tqdm
 
 from writers import WriterFactory
 from cointracker_writer import write_transaction_data_to_cointracker_csv
@@ -68,6 +69,7 @@ class Args(BaseModel):
     chain: str = "mintchain"
     fees_only: bool = False
     consolidated: bool = False
+    validate: bool = False
 
     @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -311,27 +313,43 @@ def process_transactions(
 
     # Fetch transactions concurrently
     with ThreadPoolExecutor(max_workers=5) as executor:
-        future_tx = executor.submit(
-            adapter.get_transactions, wallet_address, start_block, end_block
-        )
-        future_token = executor.submit(
-            adapter.get_token_transfers, wallet_address, start_block, end_block
-        )
-        future_internal = executor.submit(
-            adapter.get_internal_transactions, wallet_address, start_block, end_block
-        )
-        future_nft = executor.submit(
-            adapter.get_nft_transfers, wallet_address, start_block, end_block
-        )
-        future_1155 = executor.submit(
-            adapter.get_1155_transfers, wallet_address, start_block, end_block
-        )
-
-        transactions = future_tx.result()
-        token_transfers = future_token.result()
-        internal_transactions = future_internal.result()
-        nft_transfers = future_nft.result()
-        _1155_transfers = future_1155.result()
+        futures = {}
+        # Submit all tasks and map futures to task types
+        futures[executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)] = "transactions"
+        futures[executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)] = "token_transfers"
+        futures[executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)] = "internal_transactions"
+        futures[executor.submit(adapter.get_nft_transfers, wallet_address, start_block, end_block)] = "nft_transfers"
+        futures[executor.submit(adapter.get_1155_transfers, wallet_address, start_block, end_block)] = "1155_transfers"
+        
+        # Initialize variables
+        transactions = token_transfers = internal_transactions = nft_transfers = _1155_transfers = None
+        
+        # Track progress with tqdm
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Fetching blockchain data", unit="task"):
+            task_type = futures[future]
+            try:
+                result = future.result()
+            except Exception as e:
+                logging.error(f"Error fetching {task_type}: {e}")
+                result = []
+            
+            if task_type == "transactions":
+                transactions = result
+            elif task_type == "token_transfers":
+                token_transfers = result
+            elif task_type == "internal_transactions":
+                internal_transactions = result
+            elif task_type == "nft_transfers":
+                nft_transfers = result
+            elif task_type == "1155_transfers":
+                _1155_transfers = result
+        
+        # Ensure all variables are set
+        transactions = transactions or []
+        token_transfers = token_transfers or []
+        internal_transactions = internal_transactions or []
+        nft_transfers = nft_transfers or []
+        _1155_transfers = _1155_transfers or []
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
@@ -395,6 +413,7 @@ def process_single_wallet(
     consolidated: bool = False,
     index: int = 0,
     total_count: int = 1,
+    validate: bool = False,
 ) -> None:
     """
     Processes a single wallet address.
@@ -425,6 +444,12 @@ def process_single_wallet(
         balances = calculate_token_balances(all_sorted_transactions)
         summary = format_balance_summary(balances)
         logging.info(f"Audit Summary for {wallet_address}:\n{summary}")
+
+        # Run Koinly validation if requested
+        if validate and output_format == "koinly":
+            from validation import validate_transactions_for_koinly, print_validation_report
+            errors = validate_transactions_for_koinly(output_data)
+            print_validation_report(errors)
 
         return all_sorted_transactions
 
@@ -554,6 +579,11 @@ def main() -> None:
         "--consolidated",
         action="store_true",
         help="Consolidate all wallets into a single output file.",
+    )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Run Koinly compatibility validation on exported transactions.",
     )
 
     try:

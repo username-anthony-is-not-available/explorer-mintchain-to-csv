@@ -1,35 +1,9 @@
-# Git
-.git
-.gitignore
-
-# VSCode
-.vscode/
-
-# Python
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-env/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.nox/
+.git/
+.env
+output/
+tests/
 .coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
 *.log
-.mypy_cache/
-.pytest_cache/
-
-# Docker
-Dockerfile
-.dockerignore
-
-# IDE
-.idea/
-*.iml
+.kilo/
