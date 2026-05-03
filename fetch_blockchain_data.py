@@ -66,8 +66,12 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         message = data.get("message")
 
         # Handle Etherscan-style empty responses gracefully
-        if status == "0" and message == "No transactions found":
-            return []
+        if status == "0":
+            if message == "No transactions found":
+                return []
+            if "rate limit" in str(data.get("result", "")).lower() or "rate limit" in str(message).lower():
+                logging.warning(f"API rate limit reached for {endpoint}. Triggering retry...")
+                raise RequestException("API rate limit reached", response=response)
 
         # Check for data in 'result' (standard Etherscan) or 'items' (Routescan V2/Blockscout).
         # Routescan V2 APIs, used by chains like MintChain, return the transaction list
