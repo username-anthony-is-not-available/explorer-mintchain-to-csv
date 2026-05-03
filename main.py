@@ -32,6 +32,7 @@ from koinly_writer import write_transaction_data_to_koinly_csv
 from zenledger_writer import write_transaction_data_to_zenledger_csv
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
+from balance_utils import calculate_token_balances, format_balance_summary
 
 # Load environment variables (will be handled in main if password provided)
 # load_dotenv()
@@ -418,6 +419,11 @@ def process_single_wallet(
             f"({index + 1}/{total_count}) "
             f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}"
         )
+
+        # Log Token Balance Audit Summary
+        balances = calculate_token_balances(all_sorted_transactions)
+        summary = format_balance_summary(balances)
+        logging.info(f"Audit Summary for {wallet_address}:\n{summary}")
 
     except Exception as e:
         logging.error(f"Failed to process address {wallet_address}: {e}")
