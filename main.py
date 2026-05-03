@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Type
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
+from security_utils import decrypt_and_load_env
 
 from cointracker_writer import write_transaction_data_to_cointracker_csv
 from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalculator_csv
@@ -32,8 +33,8 @@ from zenledger_writer import write_transaction_data_to_zenledger_csv
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables (will be handled in main if password provided)
+# load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -493,6 +494,11 @@ def main() -> None:
         help="Blockchain explorer to use.",
     )
     parser.add_argument(
+        "--password",
+        type=str,
+        help="Password to decrypt the .env file if it is encrypted.",
+    )
+    parser.add_argument(
         "--fees-only",
         action="store_true",
         help="Only export gas fees for transactions where the user was the sender.",
@@ -504,6 +510,17 @@ def main() -> None:
     except ValidationError as e:
         logging.error(f"Argument validation error: {e}")
         return
+
+    # Handle .env loading (encrypted or plain)
+    env_password = args.password or os.getenv("ENV_PASSWORD")
+    if env_password:
+        if decrypt_and_load_env(".env", env_password):
+            logging.info("Encrypted .env loaded successfully.")
+        else:
+            logging.info("Failed to decrypt .env with provided password. Trying plain load...")
+            load_dotenv()
+    else:
+        load_dotenv()
 
     # Collect wallet addresses from all sources
     wallet_addresses = []
