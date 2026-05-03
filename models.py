@@ -90,6 +90,23 @@ class Transaction(BaseModel):
     fee_currency: Optional[str] = Field(None, alias="Fee Currency")
     net_worth_amount: Optional[str] = Field(None, alias="Net Worth Amount")
     net_worth_currency: Optional[str] = Field(None, alias="Net Worth Currency")
-    label: Optional[str] = Field(None, alias="Label")
+    label: Optional[Union[TransactionType, str]] = Field(None, alias="Label")
     description: str = Field(..., alias="Description")
     tx_hash: str = Field(..., alias="TxHash")
+
+    @model_validator(mode="after")
+    def check_amounts_and_currencies(self) -> "Transaction":
+        if self.sent_amount and not self.sent_currency:
+            raise ValueError("sent_currency must be provided if sent_amount is set")
+        if self.received_amount and not self.received_currency:
+            raise ValueError("received_currency must be provided if received_amount is set")
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_label_enum(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "Label" in data:
+            label = data["Label"]
+            if isinstance(label, TransactionType):
+                data["Label"] = label.value
+        return data
