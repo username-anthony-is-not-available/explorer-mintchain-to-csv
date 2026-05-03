@@ -23,6 +23,8 @@ class CacheManager:
         return hashlib.sha256(endpoint.encode()).hexdigest()
 
     def get_response(self, endpoint: str) -> Optional[Any]:
+        if os.getenv("DISABLE_CACHE", "").lower() == "true":
+            return None
         key = self._get_key(endpoint)
         try:
             with sqlite3.connect(self.db_path) as conn:

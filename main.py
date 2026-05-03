@@ -13,9 +13,13 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 from security_utils import decrypt_and_load_env
 
+from writers import WriterFactory
 from cointracker_writer import write_transaction_data_to_cointracker_csv
 from cryptotaxcalculator_writer import write_transaction_data_to_cryptotaxcalculator_csv
 from csv_writer import write_transaction_data_to_csv
+from json_writer import write_transaction_data_to_json
+from koinly_writer import write_transaction_data_to_koinly_csv
+from zenledger_writer import write_transaction_data_to_zenledger_csv
 from extract_transaction_data import extract_transaction_data
 from transaction_categorization import detect_swap_from_transfers
 from explorer_adapters import (
@@ -406,21 +410,12 @@ def process_single_wallet(
         # Define the output path based on the format
         output_file = f"output/{wallet_address}_transactions.{output_format}"
 
-        # Write data to the appropriate format
+        # Write data using the WriterFactory
         if not consolidated:
-            if output_format == "csv":
-                write_transaction_data_to_csv(output_file, output_data)
-            elif output_format == "json":
-                write_transaction_data_to_json(output_file, output_data)
-            elif output_format == "cointracker":
-                write_transaction_data_to_cointracker_csv(output_file, output_data)
-            elif output_format == "cryptotaxcalculator":
-                write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-            elif output_format == "koinly":
-                write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
-            elif output_format == "zenledger":
-                write_transaction_data_to_zenledger_csv(output_file, output_data)
+            writer = WriterFactory.get_writer(output_format)
+            writer.write(output_file, output_data, chain=chain, consolidated=consolidated)
 
+        if not consolidated:
             logging.info(
                 f"({index + 1}/{total_count}) "
                 f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}"
@@ -508,18 +503,9 @@ def process_batch_transactions(
             }
             output_data.append(tx_dict)
 
-        if output_format == "csv":
-            write_transaction_data_to_csv(output_file, output_data)
-        elif output_format == "json":
-            write_transaction_data_to_json(output_file, output_data)
-        elif output_format == "cointracker":
-            write_transaction_data_to_cointracker_csv(output_file, output_data)
-        elif output_format == "cryptotaxcalculator":
-            write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-        elif output_format == "koinly":
-            write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
-        elif output_format == "zenledger":
-            write_transaction_data_to_zenledger_csv(output_file, output_data)
+        # Write data using the WriterFactory
+        writer = WriterFactory.get_writer(output_format)
+        writer.write(output_file, output_data, chain=chain, consolidated=True)
 
         logging.info(f"Successfully wrote {len(output_data)} consolidated transactions to {output_file}")
 

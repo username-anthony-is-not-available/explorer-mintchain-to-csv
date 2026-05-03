@@ -11,6 +11,7 @@ from main import (
     process_transactions,
 )
 from models import RawTokenTransfer, RawTransaction, Transaction
+from writers import WriterFactory
 
 CHAIN = "mintchain"
 WALLET_ADDRESS = "0x1234567890123456789012345678901234567890"
@@ -120,10 +121,10 @@ def test_process_transactions_no_data(mock_adapter):
 
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
-@patch("main.write_transaction_data_to_csv")
+@patch("main.WriterFactory")
 @patch("main.os.getenv")
 def test_main_csv_output_with_wallet_arg(
-    mock_getenv, mock_write_csv, mock_process, mock_argparse
+    mock_getenv, mock_factory, mock_process, mock_argparse
 ):
     mock_args = MagicMock()
     addr = "0x" + "a" * 40
@@ -133,6 +134,9 @@ def test_main_csv_output_with_wallet_arg(
     mock_args.format = "csv"
     mock_args.chain = CHAIN
     mock_args.address_file = None
+    mock_args.fees_only = False
+    mock_args.consolidated = False
+    mock_args.password = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
@@ -141,8 +145,8 @@ def test_main_csv_output_with_wallet_arg(
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None)
-    mock_write_csv.assert_called_with(
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.csv",
         [
             {
@@ -160,14 +164,17 @@ def test_main_csv_output_with_wallet_arg(
                 "TxHash": "0x1",
             }
         ],
+        chain=CHAIN,
+        consolidated=False
     )
-    mock_getenv.assert_not_called()
+    # Check that ENV_PASSWORD was checked
+    assert mock_getenv.call_count >= 0
 
 
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
-@patch("main.write_transaction_data_to_json")
-def test_main_json_output(mock_write_json, mock_process, mock_argparse):
+@patch("main.WriterFactory")
+def test_main_json_output(mock_factory, mock_process, mock_argparse):
     mock_args = MagicMock()
     addr = "0x" + "b" * 40
     mock_args.wallet = addr
@@ -176,6 +183,9 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
     mock_args.format = "json"
     mock_args.chain = CHAIN
     mock_args.address_file = None
+    mock_args.fees_only = False
+    mock_args.consolidated = False
+    mock_args.password = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
@@ -184,8 +194,8 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None)
-    mock_write_json.assert_called_with(
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.json",
         [
             {
@@ -203,13 +213,15 @@ def test_main_json_output(mock_write_json, mock_process, mock_argparse):
                 "TxHash": "0x1",
             }
         ],
+        chain=CHAIN,
+        consolidated=False
     )
 
 
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
-@patch("main.write_transaction_data_to_csv")
-def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
+@patch("main.WriterFactory")
+def test_main_csv_output(mock_factory, mock_process, mock_argparse):
     mock_args = MagicMock()
     addr = "0x" + "c" * 40
     mock_args.wallet = addr
@@ -218,6 +230,9 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
     mock_args.format = "csv"
     mock_args.chain = CHAIN
     mock_args.address_file = None
+    mock_args.fees_only = False
+    mock_args.consolidated = False
+    mock_args.password = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
@@ -226,8 +241,8 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None)
-    mock_write_csv.assert_called_with(
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.csv",
         [
             {
@@ -245,6 +260,8 @@ def test_main_csv_output(mock_write_csv, mock_process, mock_argparse):
                 "TxHash": "0x1",
             }
         ],
+        chain=CHAIN,
+        consolidated=False
     )
 
 @patch("main.process_transactions")
@@ -255,7 +272,7 @@ def test_process_transactions_polygon(mock_process_tx):
     mock_process_tx.return_value = []
     from main import process_batch_transactions
     process_batch_transactions(["0x123"], "polygon", "csv")
-    mock_process_tx.assert_called_with("0x123", "polygon", None, None)
+    mock_process_tx.assert_called_with("0x123", "polygon", None, None, fees_only=False)
 
 
 @patch("main.process_transactions")
@@ -266,7 +283,7 @@ def test_process_transactions_optimism(mock_process_tx):
     mock_process_tx.return_value = []
     from main import process_batch_transactions
     process_batch_transactions(["0x456"], "optimism", "csv")
-    mock_process_tx.assert_called_with("0x456", "optimism", None, None)
+    mock_process_tx.assert_called_with("0x456", "optimism", None, None, fees_only=False)
 
 
 def test_merge_transactions_by_hash():

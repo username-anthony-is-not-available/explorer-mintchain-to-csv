@@ -5,8 +5,8 @@ from main import main
 
 @patch("main.argparse.ArgumentParser")
 @patch("main.process_transactions")
-@patch("main.write_transaction_data_to_csv")
-def test_main_consolidated_export(mock_write_csv, mock_process, mock_argparse):
+@patch("main.WriterFactory")
+def test_main_consolidated_export(mock_factory, mock_process, mock_argparse):
     # Setup mock arguments
     addr1 = "0x" + "1" * 40
     addr2 = "0x" + "2" * 40
@@ -31,14 +31,11 @@ def test_main_consolidated_export(mock_write_csv, mock_process, mock_argparse):
 
     main()
 
-    # Verify that write_transaction_data_to_csv was called ONCE for consolidated
-    # and not twice (since consolidated=True)
-    # Wait, in the current implementation, process_batch_transactions handles consolidated.
-    # It still calls process_transactions for each wallet.
-    assert mock_write_csv.call_count == 1
+    # Verify that WriterFactory.get_writer(...).write was called ONCE for consolidated
+    assert mock_factory.get_writer.return_value.write.call_count == 1
     
     # Check the call arguments
-    args, kwargs = mock_write_csv.call_args
+    args, kwargs = mock_factory.get_writer.return_value.write.call_args
     output_file = args[0]
     output_data = args[1]
     
@@ -46,3 +43,4 @@ def test_main_consolidated_export(mock_write_csv, mock_process, mock_argparse):
     assert len(output_data) == 2
     assert output_data[0]["Wallet"] == addr1
     assert output_data[1]["Wallet"] == addr2
+    assert kwargs["consolidated"] is True

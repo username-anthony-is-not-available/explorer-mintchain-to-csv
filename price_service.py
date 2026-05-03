@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, Union
 from decimal import Decimal
 
@@ -32,7 +32,8 @@ def get_token_price(
         The price in USD as a Decimal, or None if not found.
     """
     # Convert timestamp to YYYY-MM-DD for Coingecko's historical API
-    date_str = datetime.fromtimestamp(timestamp).strftime("%d-%m-%Y")
+    # Use UTC to avoid timezone issues during date formatting
+    date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%d-%m-%Y")
 
     platform_id = COINGECKO_PLATFORM_MAP.get(chain)
 
@@ -79,8 +80,6 @@ def _get_coin_id_by_symbol(symbol: str) -> Optional[str]:
 
 def _fetch_price_by_contract(platform_id: str, contract_address: str, date_str: str) -> Optional[Decimal]:
     """Fetches historical price using Coingecko's /coins/{id}/contract/{contract_address}/history endpoint."""
-    # Note: Coingecko's public API for historical contract price is a bit tricky.
-    # Usually, we first need to find the coin ID by contract address.
     coin_id = _get_coin_id_from_contract(platform_id, contract_address)
     if not coin_id:
         return None

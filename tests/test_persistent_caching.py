@@ -5,7 +5,9 @@ from fetch_blockchain_data import fetch_data
 from models import RawTransaction
 from cache_manager import cache_manager
 
-def test_fetch_data_persistent_caching(tmp_path):
+def test_fetch_data_persistent_caching(tmp_path, monkeypatch):
+    # Re-enable cache for this test
+    monkeypatch.setenv("DISABLE_CACHE", "false")
     # Setup a fresh cache for testing
     cache_db = os.path.join(tmp_path, "test_cache.db")
     cache_manager.db_path = cache_db
