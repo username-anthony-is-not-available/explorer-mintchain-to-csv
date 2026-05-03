@@ -63,6 +63,7 @@ class Args(BaseModel):
     format: str
     chain: str = "mintchain"
     fees_only: bool = False
+    consolidated: bool = False
 
     @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -387,6 +388,7 @@ def process_single_wallet(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     fees_only: bool = False,
+    consolidated: bool = False,
     index: int = 0,
     total_count: int = 1,
 ) -> None:
@@ -404,29 +406,32 @@ def process_single_wallet(
         # Define the output path based on the format
         output_file = f"output/{wallet_address}_transactions.{output_format}"
 
-        # Write the data to the selected format
-        if output_format == "csv":
-            write_transaction_data_to_csv(output_file, output_data)
-        elif output_format == "json":
-            write_transaction_data_to_json(output_file, output_data)
-        elif output_format == "cointracker":
-            write_transaction_data_to_cointracker_csv(output_file, output_data)
-        elif output_format == "cryptotaxcalculator":
-            write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
-        elif output_format == "koinly":
-            write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
-        elif output_format == "zenledger":
-            write_transaction_data_to_zenledger_csv(output_file, output_data)
+        # Write data to the appropriate format
+        if not consolidated:
+            if output_format == "csv":
+                write_transaction_data_to_csv(output_file, output_data)
+            elif output_format == "json":
+                write_transaction_data_to_json(output_file, output_data)
+            elif output_format == "cointracker":
+                write_transaction_data_to_cointracker_csv(output_file, output_data)
+            elif output_format == "cryptotaxcalculator":
+                write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
+            elif output_format == "koinly":
+                write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
+            elif output_format == "zenledger":
+                write_transaction_data_to_zenledger_csv(output_file, output_data)
 
-        logging.info(
-            f"({index + 1}/{total_count}) "
-            f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}"
-        )
+            logging.info(
+                f"({index + 1}/{total_count}) "
+                f"Successfully wrote {len(output_data)} transactions to {output_file} for wallet {wallet_address}"
+            )
 
         # Log Token Balance Audit Summary
         balances = calculate_token_balances(all_sorted_transactions)
         summary = format_balance_summary(balances)
         logging.info(f"Audit Summary for {wallet_address}:\n{summary}")
+
+        return all_sorted_transactions
 
     except Exception as e:
         logging.error(f"Failed to process address {wallet_address}: {e}")
@@ -440,12 +445,15 @@ def process_batch_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     fees_only: bool = False,
+    consolidated: bool = False,
 ) -> None:
     """
     Processes multiple wallet addresses concurrently.
     """
     total = len(addresses)
     logging.info(f"Starting batch process for {total} wallet(s) on {chain}...")
+
+    all_consolidated_transactions = []
 
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
@@ -457,6 +465,7 @@ def process_batch_transactions(
                 start_date,
                 end_date,
                 fees_only,
+                consolidated,
                 i,
                 len(addresses),
             ): wallet_address
@@ -466,10 +475,53 @@ def process_batch_transactions(
         for future in as_completed(futures):
             wallet_address = futures[future]
             try:
-                future.result()
+                if consolidated:
+                    txs = future.result()
+                    for tx in txs:
+                        all_consolidated_transactions.append((wallet_address, tx))
+                else:
+                    future.result()
             except Exception as e:
-                # Error is already logged in process_single_wallet
-                pass
+                logging.error(f"Error processing wallet {wallet_address}: {e}")
+
+    if consolidated and all_consolidated_transactions:
+        # Sort all by date
+        all_consolidated_transactions.sort(key=lambda x: x[1].timestamp)
+        
+        output_file = f"output/consolidated_transactions.{output_format}"
+        output_data = []
+        for wallet_address, tx in all_consolidated_transactions:
+            tx_dict = {
+                "Wallet": wallet_address,
+                "Date": tx.date,
+                "Sent Amount": tx.sent_amount,
+                "Sent Currency": tx.sent_currency,
+                "Received Amount": tx.received_amount,
+                "Received Currency": tx.received_currency,
+                "Fee Amount": tx.fee_amount,
+                "Fee Currency": tx.fee_currency,
+                "Net Worth Amount": tx.net_worth_amount,
+                "Net Worth Currency": tx.net_worth_currency,
+                "Label": tx.label.value if hasattr(tx.label, "value") else tx.label,
+                "Description": tx.description,
+                "TxHash": tx.tx_hash,
+            }
+            output_data.append(tx_dict)
+
+        if output_format == "csv":
+            write_transaction_data_to_csv(output_file, output_data)
+        elif output_format == "json":
+            write_transaction_data_to_json(output_file, output_data)
+        elif output_format == "cointracker":
+            write_transaction_data_to_cointracker_csv(output_file, output_data)
+        elif output_format == "cryptotaxcalculator":
+            write_transaction_data_to_cryptotaxcalculator_csv(output_file, output_data)
+        elif output_format == "koinly":
+            write_transaction_data_to_koinly_csv(output_file, output_data, chain=chain)
+        elif output_format == "zenledger":
+            write_transaction_data_to_zenledger_csv(output_file, output_data)
+
+        logging.info(f"Successfully wrote {len(output_data)} consolidated transactions to {output_file}")
 
 
 # Main function
@@ -511,6 +563,11 @@ def main() -> None:
         "--fees-only",
         action="store_true",
         help="Only export gas fees for transactions where the user was the sender.",
+    )
+    parser.add_argument(
+        "--consolidated",
+        action="store_true",
+        help="Consolidate all wallets into a single output file.",
     )
 
     try:
@@ -578,6 +635,7 @@ def main() -> None:
         validated_args.start_date,
         validated_args.end_date,
         validated_args.fees_only,
+        validated_args.consolidated,
     )
 
 

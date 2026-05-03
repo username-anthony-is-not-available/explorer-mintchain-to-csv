@@ -8,6 +8,9 @@ def write_transaction_data_to_csv(output_file: str, transaction_data: List[Dict[
     fieldnames: List[str] = ['Date', 'Sent Amount', 'Sent Currency', 'Received Amount', 'Received Currency',
                   'Fee Amount', 'Fee Currency', 'Net Worth Amount', 'Net Worth Currency',
                   'Label', 'Description', 'TxHash']
+    
+    if transaction_data and 'Wallet' in transaction_data[0]:
+        fieldnames.insert(0, 'Wallet')
 
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
