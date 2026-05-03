@@ -66,6 +66,7 @@ class Args(BaseModel):
     address_file: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    tax_year: Optional[int] = None
     format: str
     chain: str = "mintchain"
     fees_only: bool = False
@@ -94,6 +95,15 @@ class Args(BaseModel):
             raise ValueError(
                 "No wallet addresses provided. Use --wallet, --address-file, or set WALLET_ADDRESS/WALLET_ADDRESSES in your .env file."
             )
+        return self
+
+    @model_validator(mode="after")
+    def check_date_or_year(self):
+        if self.tax_year and (self.start_date or self.end_date):
+            raise ValueError("Cannot specify both --year and --start-date/--end-date")
+        if self.tax_year:
+            self.start_date = f"{self.tax_year}-01-01"
+            self.end_date = f"{self.tax_year}-12-31"
         return self
 
 
@@ -598,6 +608,11 @@ def main() -> None:
         "--rpc-url",
         type=str,
         help="Custom RPC/explorer API URL (overrides default for selected chain).",
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        help="Tax year to export (e.g., 2024). Sets start-date to Jan 1 and end-date to Dec 31 of specified year.",
     )
 
     try:

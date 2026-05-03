@@ -398,3 +398,94 @@ def test_merge_transactions_same_currency_sum():
     assert merged_txs[0].sent_amount == "15.5"
     assert "First move" in merged_txs[0].description
     assert "Second move" in merged_txs[0].description
+
+
+def test_args_year_sets_correct_dates():
+    """
+    Test that --year flag sets correct start and end dates.
+    """
+    args = Args(
+        wallet="0x1234567890123456789012345678901234567890",
+        tax_year=2024,
+        format="csv",
+    )
+    assert args.start_date == "2024-01-01"
+    assert args.end_date == "2024-12-31"
+    assert args.tax_year == 2024
+
+
+def test_args_year_with_start_date_raises_error():
+    """
+    Test that specifying both --year and --start-date raises a validation error.
+    """
+    with pytest.raises(ValidationError) as exc_info:
+        Args(
+            wallet="0x1234567890123456789012345678901234567890",
+            tax_year=2024,
+            start_date="2024-06-01",
+            format="csv",
+        )
+    assert "Cannot specify both --year and --start-date/--end-date" in str(exc_info.value)
+
+
+def test_args_year_with_end_date_raises_error():
+    """
+    Test that specifying both --year and --end-date raises a validation error.
+    """
+    with pytest.raises(ValidationError) as exc_info:
+        Args(
+            wallet="0x1234567890123456789012345678901234567890",
+            tax_year=2024,
+            end_date="2024-06-30",
+            format="csv",
+        )
+    assert "Cannot specify both --year and --start-date/--end-date" in str(exc_info.value)
+
+
+def test_args_year_leap_year():
+    """
+    Test that --year flag works correctly for leap years.
+    """
+    args = Args(
+        wallet="0x1234567890123456789012345678901234567890",
+        tax_year=2024,
+        format="csv",
+    )
+    assert args.start_date == "2024-01-01"
+    assert args.end_date == "2024-12-31"
+
+
+def test_main_year_flag(mock_adapter):
+    """
+    Test that main() correctly processes --year flag to set start/end dates.
+    """
+    with patch("main.argparse.ArgumentParser") as mock_argparse:
+        mock_args = MagicMock()
+        addr = "0x" + "d" * 40
+        mock_args.wallet = addr
+        mock_args.start_date = None
+        mock_args.end_date = None
+        mock_args.tax_year = 2024
+        mock_args.format = "csv"
+        mock_args.chain = CHAIN
+        mock_args.address_file = None
+        mock_args.fees_only = False
+        mock_args.consolidated = False
+        mock_args.password = None
+        mock_args.rpc_url = None
+        mock_args.run_validation = False
+        mock_argparse.return_value.parse_args.return_value = mock_args
+
+        with patch("main.process_batch_transactions") as mock_process_batch:
+            main()
+            mock_process_batch.assert_called_with(
+                [addr.lower()],
+                CHAIN,
+                "csv",
+                "2024-01-01",
+                "2024-12-31",
+                False,
+                False,
+                None,
+                False,
+            )

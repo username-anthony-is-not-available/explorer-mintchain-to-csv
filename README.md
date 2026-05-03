@@ -149,6 +149,7 @@ python main.py
 | `--address-file`| File containing a list of wallet addresses.                                          |
 | `--start-date` | Filter transactions starting from this date (YYYY-MM-DD format).                     |
 | `--end-date`   | Filter transactions up to this date (YYYY-MM-DD format).                             |
+| `--year`       | Tax year to export (e.g., 2024). Sets start-date to Jan 1 and end-date to Dec 31.   |
 | `--format`     | Output format: `csv`, `json`, `koinly`, `cointracker`, `cryptotaxcalculator`.          |
 | `--chain`      | Blockchain explorer to use: `mintchain` (default), `etherscan`, `basescan`, `arbiscan`. |
 
@@ -170,6 +171,12 @@ Export transactions for a specific date range from Base:
 
 ```bash
 python main.py --wallet 0xYourWalletAddressHere --chain basescan --start-date 2024-01-01 --end-date 2024-12-31
+```
+
+Export transactions for a specific tax year (automatically sets start and end dates):
+
+```bash
+python main.py --wallet 0xYourWalletAddressHere --chain etherscan --year 2024
 ```
 
 Export transactions for multiple wallets from a file on Arbitrum to the Koinly format:
