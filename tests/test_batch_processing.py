@@ -86,8 +86,8 @@ def test_main_batch_address_file(mock_open_file, mock_write_json, mock_process, 
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.side_effect = [
-        [Transaction.model_validate({"Date": "2023-01-01 00:00:03 UTC", "timestamp": 3, "Description": "tx3", "TxHash": "0x3", "Sent Amount": "1"})],
-        [Transaction.model_validate({"Date": "2023-01-01 00:00:04 UTC", "timestamp": 4, "Description": "tx4", "TxHash": "0x4", "Sent Amount": "1"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:03 UTC", "timestamp": 3, "Description": "tx3", "TxHash": "0x3", "Sent Amount": "1", "Sent Currency": "ETH"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:04 UTC", "timestamp": 4, "Description": "tx4", "TxHash": "0x4", "Sent Amount": "1", "Sent Currency": "ETH"})],
     ]
 
     main()

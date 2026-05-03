@@ -7,10 +7,12 @@ MINTCHAIN_API_URL = "https://api.routescan.io/v2/network/mainnet/evm/185/ethersc
 TEST_WALLET_ADDRESS = "0x1111111111111111111111111111111111111111"
 
 
-def test_cli_json_output(responses):
+import responses
+
+@responses.activate
+def test_cli_json_output():
     """
     Tests the CLI tool's JSON output by mocking API calls.
-    The 'responses' argument is a fixture provided by the pytest-responses library.
     """
     # Mock the API calls for normal transactions and token transactions
     responses.add(
