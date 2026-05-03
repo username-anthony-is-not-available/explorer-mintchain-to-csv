@@ -1,5 +1,5 @@
-from typing import Any, Optional
-from pydantic import BaseModel, Field, model_validator, AliasChoices
+from typing import Any, Optional, Union
+from pydantic import BaseModel, Field, AliasChoices, model_validator
 from enum import Enum
 
 
@@ -22,7 +22,7 @@ class Address(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def handle_raw_address(cls, data: Any) -> Any:
+    def validate_address(cls, data: Any) -> Any:
         if isinstance(data, str):
             return {"hash": data}
         return data
@@ -42,12 +42,12 @@ class RawTransaction(BaseModel):
     from_address: Address = Field(..., alias="from")
     to_address: Address = Field(..., alias="to")
     value: str
-    gasUsed: str = Field(..., validation_alias=AliasChoices("gasUsed", "gas"))
+    gasUsed: Optional[str] = Field(None, validation_alias=AliasChoices("gasUsed", "gas"))
     gasPrice: Optional[str] = None
 
 
 class RawTokenTransfer(BaseModel):
-    hash: str
+    hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
     timeStamp: str
     from_address: Address = Field(..., alias="from")
     to_address: Address = Field(..., alias="to")
@@ -58,7 +58,7 @@ class RawTokenTransfer(BaseModel):
 
 
 class RawNFTTransfer(BaseModel):
-    hash: str
+    hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
     timeStamp: str
     from_address: Address = Field(..., alias="from")
     to_address: Address = Field(..., alias="to")
@@ -69,7 +69,7 @@ class RawNFTTransfer(BaseModel):
 
 
 class Raw1155Transfer(BaseModel):
-    hash: str
+    hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
     timeStamp: str
     from_address: Address = Field(..., alias="from")
     to_address: Address = Field(..., alias="to")

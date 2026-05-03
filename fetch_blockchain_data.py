@@ -19,9 +19,6 @@ from models import RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
 
-# Global session for connection pooling
-session = requests.Session()
-
 
 def wait_retry_after_or_exponential(retry_state):
     """
@@ -75,18 +72,17 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
         # Check for data in 'result' (standard Etherscan) or 'items' (Routescan V2/Blockscout).
         # Routescan V2 APIs, used by chains like MintChain, return the transaction list
         # in an 'items' key instead of the Etherscan-standard 'result' key.
-        if "result" in data:
-            result_list = data.get("result")
-        elif "items" in data:
+        result_list = data.get("result")
+        if result_list is None:
             result_list = data.get("items")
-        else:
-            result_list = None
 
         # Handle malformed result formats
-        if not isinstance(result_list, list):
-            logging.error(
-                f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
-            )
+        if result_list is None or not isinstance(result_list, list):
+            # Only log an error if we didn't explicitly get a 'No transactions found' message
+            if not (status == "0" and message == "No transactions found"):
+                logging.error(
+                    f"API response for {endpoint} does not contain a list in 'result' or 'items': {data}"
+                )
             return []
 
         validated_data: List[T] = []

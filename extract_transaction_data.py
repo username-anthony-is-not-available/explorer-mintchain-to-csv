@@ -73,10 +73,13 @@ def extract_transaction_data(
             if is_sender:
                 data["Sent Amount"] = scale_amount(trx.value, 18)
                 data["Sent Currency"] = native_currency
-                if trx.gasPrice:
-                    fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
-                    data["Fee Amount"] = scale_amount(fee_value, 18)
-                    data["Fee Currency"] = native_currency
+                if trx.gasPrice and trx.gasUsed:
+                    try:
+                        fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
+                        data["Fee Amount"] = scale_amount(fee_value, 18)
+                        data["Fee Currency"] = native_currency
+                    except (ValueError, TypeError):
+                        pass
             if is_receiver:
                 data["Received Amount"] = scale_amount(trx.value, 18)
                 data["Received Currency"] = native_currency
