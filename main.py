@@ -272,6 +272,9 @@ def get_addresses_from_file(file_path: str) -> List[str]:
     return addresses
 
 
+def process_transactions(
+    wallet_address: str,
+    chain: str,
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None,
     fees_only: bool = False,
