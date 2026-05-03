@@ -145,7 +145,7 @@ def test_main_csv_output_with_wallet_arg(
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False, rpc_url=None)
     mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.csv",
         [
@@ -186,6 +186,7 @@ def test_main_json_output(mock_factory, mock_process, mock_argparse):
     mock_args.fees_only = False
     mock_args.consolidated = False
     mock_args.password = None
+    mock_args.rpc_url = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
     mock_process.return_value = [
@@ -194,7 +195,7 @@ def test_main_json_output(mock_factory, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False, rpc_url=None)
     mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.json",
         [
@@ -241,7 +242,7 @@ def test_main_csv_output(mock_factory, mock_process, mock_argparse):
 
     main()
 
-    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False)
+    mock_process.assert_called_with(addr, CHAIN, None, None, fees_only=False, rpc_url=None)
     mock_factory.get_writer.return_value.write.assert_called_with(
         f"output/{addr}_transactions.csv",
         [
@@ -271,8 +272,8 @@ def test_process_transactions_polygon(mock_process_tx):
     """
     mock_process_tx.return_value = []
     from main import process_batch_transactions
-    process_batch_transactions(["0x123"], "polygon", "csv")
-    mock_process_tx.assert_called_with("0x123", "polygon", None, None, fees_only=False)
+    process_batch_transactions(["0x123"], "polygon", "csv", rpc_url=None)
+    mock_process_tx.assert_called_with("0x123", "polygon", None, None, fees_only=False, rpc_url=None)
 
 
 @patch("main.process_transactions")
@@ -282,8 +283,8 @@ def test_process_transactions_optimism(mock_process_tx):
     """
     mock_process_tx.return_value = []
     from main import process_batch_transactions
-    process_batch_transactions(["0x456"], "optimism", "csv")
-    mock_process_tx.assert_called_with("0x456", "optimism", None, None, fees_only=False)
+    process_batch_transactions(["0x456"], "optimism", "csv", rpc_url=None)
+    mock_process_tx.assert_called_with("0x456", "optimism", None, None, fees_only=False, rpc_url=None)
 
 
 def test_merge_transactions_by_hash():

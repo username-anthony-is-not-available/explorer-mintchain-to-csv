@@ -26,6 +26,7 @@ def test_main_batch_wallet_arg(mock_factory, mock_process, mock_argparse):
     mock_args.address_file = None
     mock_args.fees_only = False
     mock_args.consolidated = False
+    mock_args.run_validation = False
     mock_args.password = None
     mock_argparse.return_value.parse_args.return_value = mock_args
 
@@ -39,8 +40,8 @@ def test_main_batch_wallet_arg(mock_factory, mock_process, mock_argparse):
 
     # Verify process_transactions is called for each address
     assert mock_process.call_count == 2
-    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False)
-    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False)
+    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False, rpc_url=None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False, rpc_url=None)
 
     # Verify separate CSV files are written for each address
     assert mock_factory.get_writer.return_value.write.call_count == 2
@@ -105,8 +106,8 @@ def test_main_batch_address_file(mock_open_file, mock_factory, mock_process, moc
 
     mock_open_file.assert_any_call("addresses.txt", "r", newline='')
     assert mock_process.call_count == 2
-    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False)
-    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False)
+    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False, rpc_url=None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False, rpc_url=None)
 
     assert mock_factory.get_writer.return_value.write.call_count == 2
 
@@ -150,8 +151,55 @@ def test_main_batch_env_var(mock_getenv, mock_factory, mock_process, mock_argpar
     main()
 
     assert mock_process.call_count == 2
-    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False)
-    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False)
+    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False, rpc_url=None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False, rpc_url=None)
+
+    assert mock_factory.get_writer.return_value.write.call_count == 2
+
+
+@patch("main.argparse.ArgumentParser")
+@patch("main.process_transactions")
+@patch("main.WriterFactory")
+@patch("main.os.getenv")
+def test_main_batch_env_var(mock_getenv, mock_factory, mock_process, mock_argparse):
+    """
+    Tests processing of multiple wallets from the WALLET_ADDRESSES environment variable.
+    """
+    addr1 = "0x" + "5" * 40
+    addr2 = "0x" + "6" * 40
+    mock_args = MagicMock()
+    mock_args.wallet = None
+    mock_args.start_date = None
+    mock_args.end_date = None
+    mock_args.format = "csv"
+    mock_args.chain = CHAIN
+    mock_args.address_file = None
+    mock_args.fees_only = False
+    mock_args.consolidated = False
+    mock_args.password = None
+    mock_args.rpc_url = None
+    mock_argparse.return_value.parse_args.return_value = mock_args
+
+    # Mock environment variables
+    def getenv_side_effect(key):
+        if key == 'WALLET_ADDRESSES':
+            return f"{addr1},{addr2}"
+        if key == 'ENV_PASSWORD':
+            return None
+        return None
+
+    mock_getenv.side_effect = getenv_side_effect
+
+    mock_process.side_effect = [
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:05 UTC", "timestamp": 5, "Description": "tx5", "TxHash": "0x5"})],
+        [Transaction.model_validate({"Date": "2023-01-01 00:00:06 UTC", "timestamp": 6, "Description": "tx6", "TxHash": "0x6"})],
+    ]
+
+    main()
+
+    assert mock_process.call_count == 2
+    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False, rpc_url=None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False, rpc_url=None)
 
     assert mock_factory.get_writer.return_value.write.call_count == 2
 
@@ -192,5 +240,5 @@ def test_main_batch_address_file_csv(mock_open_file, mock_csv_reader, mock_facto
 
     mock_open_file.assert_any_call("addresses.csv", "r", newline='')
     assert mock_process.call_count == 2
-    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False)
-    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False)
+    mock_process.assert_any_call(addr1, CHAIN, None, None, fees_only=False, rpc_url=None)
+    mock_process.assert_any_call(addr2, CHAIN, None, None, fees_only=False, rpc_url=None)

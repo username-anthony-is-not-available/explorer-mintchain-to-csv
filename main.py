@@ -38,6 +38,7 @@ from zenledger_writer import write_transaction_data_to_zenledger_csv
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 from balance_utils import calculate_token_balances, format_balance_summary
+from version_check import print_update_notification
 
 # Load environment variables (will be handled in main if password provided)
 # load_dotenv()
@@ -69,7 +70,8 @@ class Args(BaseModel):
     chain: str = "mintchain"
     fees_only: bool = False
     consolidated: bool = False
-    validate: bool = False
+    run_validation: bool = False
+    rpc_url: Optional[str] = None
 
     @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -285,12 +287,13 @@ def process_transactions(
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None,
     fees_only: bool = False,
+    rpc_url: Optional[str] = None,
 ) -> List[Transaction]:
     # Get the adapter for the selected chain
     adapter_class = ADAPTERS.get(chain)
     if not adapter_class:
         raise ValueError(f"Unsupported chain: {chain}")
-    adapter = adapter_class(chain)
+    adapter = adapter_class(chain, rpc_url=rpc_url)
 
     start_block = 0
     end_block = 99999999
@@ -413,14 +416,15 @@ def process_single_wallet(
     consolidated: bool = False,
     index: int = 0,
     total_count: int = 1,
-    validate: bool = False,
+    run_validation: bool = False,
+    rpc_url: Optional[str] = None,
 ) -> None:
     """
     Processes a single wallet address.
     """
     try:
         all_sorted_transactions = process_transactions(
-            wallet_address, chain, start_date, end_date, fees_only=fees_only
+            wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url
         )
 
         # Convert Pydantic models to dictionaries for writers
@@ -446,7 +450,7 @@ def process_single_wallet(
         logging.info(f"Audit Summary for {wallet_address}:\n{summary}")
 
         # Run Koinly validation if requested
-        if validate and output_format == "koinly":
+        if run_validation and output_format == "koinly":
             from validation import validate_transactions_for_koinly, print_validation_report
             errors = validate_transactions_for_koinly(output_data)
             print_validation_report(errors)
@@ -466,6 +470,8 @@ def process_batch_transactions(
     end_date: Optional[str] = None,
     fees_only: bool = False,
     consolidated: bool = False,
+    rpc_url: Optional[str] = None,
+    run_validation: bool = False,
 ) -> None:
     """
     Processes multiple wallet addresses concurrently.
@@ -488,11 +494,13 @@ def process_batch_transactions(
                 consolidated,
                 i,
                 len(addresses),
+                run_validation,
+                rpc_url,
             ): wallet_address
             for i, wallet_address in enumerate(addresses)
         }
 
-        for future in as_completed(futures):
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
             wallet_address = futures[future]
             try:
                 if consolidated:
@@ -583,7 +591,13 @@ def main() -> None:
     parser.add_argument(
         "--validate",
         action="store_true",
+        dest="run_validation",
         help="Run Koinly compatibility validation on exported transactions.",
+    )
+    parser.add_argument(
+        "--rpc-url",
+        type=str,
+        help="Custom RPC/explorer API URL (overrides default for selected chain).",
     )
 
     try:
@@ -652,8 +666,14 @@ def main() -> None:
         validated_args.end_date,
         validated_args.fees_only,
         validated_args.consolidated,
+        validated_args.rpc_url,
+        validated_args.run_validation,
     )
 
 
 if __name__ == "__main__":
+    # Check for updates at startup
+    repo_owner = os.getenv("REPO_OWNER", "jules-dot-dev")
+    repo_name = os.getenv("REPO_NAME", "explorer-mintchain-to-csv")
+    print_update_notification(repo_owner, repo_name)
     main()

@@ -60,3 +60,7 @@ DEFILLAMA_PLATFORM_MAP = {
 
 # Timeout value (in seconds)
 TIMEOUT: int = 10
+
+# Custom RPC URLs (optional, override default explorer URLs)
+# Format: {"chain_name": "https://custom-rpc-url.com"}
+# Can also be set via RPC_URL_{CHAIN_NAME} environment variable
