@@ -60,6 +60,7 @@ class Args(BaseModel):
     end_date: Optional[str] = None
     format: str
     chain: str = "mintchain"
+    fees_only: bool = False
 
     @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -269,11 +270,9 @@ def get_addresses_from_file(file_path: str) -> List[str]:
     return addresses
 
 
-def process_transactions(
-    wallet_address: str,
-    chain: str,
     start_date_str: Optional[str] = None,
     end_date_str: Optional[str] = None,
+    fees_only: bool = False,
 ) -> List[Transaction]:
     # Get the adapter for the selected chain
     adapter_class = ADAPTERS.get(chain)
@@ -326,19 +325,19 @@ def process_transactions(
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
-        transactions, "transaction", wallet_address, chain
+        transactions, "transaction", wallet_address, chain, fees_only=fees_only
     )
     extracted_token_transfers = extract_transaction_data(
-        token_transfers, "token_transfers", wallet_address, chain
+        token_transfers, "token_transfers", wallet_address, chain, fees_only=fees_only
     )
     extracted_internal_transactions = extract_transaction_data(
-        internal_transactions, "internal_transaction", wallet_address, chain
+        internal_transactions, "internal_transaction", wallet_address, chain, fees_only=fees_only
     )
     extracted_nft_transfers = extract_transaction_data(
-        nft_transfers, "nft_transfer", wallet_address, chain
+        nft_transfers, "nft_transfer", wallet_address, chain, fees_only=fees_only
     )
     extracted_1155_transfers = extract_transaction_data(
-        _1155_transfers, "1155_transfer", wallet_address, chain
+        _1155_transfers, "1155_transfer", wallet_address, chain, fees_only=fees_only
     )
 
     # Combine and sort all transactions by date
@@ -382,6 +381,7 @@ def process_single_wallet(
     output_format: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    fees_only: bool = False,
     index: int = 0,
     total_count: int = 1,
 ) -> None:
@@ -390,7 +390,7 @@ def process_single_wallet(
     """
     try:
         all_sorted_transactions = process_transactions(
-            wallet_address, chain, start_date, end_date
+            wallet_address, chain, start_date, end_date, fees_only=fees_only
         )
 
         # Convert Pydantic models to dictionaries for writers
@@ -429,6 +429,7 @@ def process_batch_transactions(
     output_format: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    fees_only: bool = False,
 ) -> None:
     """
     Processes multiple wallet addresses concurrently.
@@ -445,6 +446,7 @@ def process_batch_transactions(
                 output_format,
                 start_date,
                 end_date,
+                fees_only,
                 i,
                 len(addresses),
             ): wallet_address
@@ -489,6 +491,11 @@ def main() -> None:
         choices=list(EXPLORER_URLS.keys()),
         default="mintchain",
         help="Blockchain explorer to use.",
+    )
+    parser.add_argument(
+        "--fees-only",
+        action="store_true",
+        help="Only export gas fees for transactions where the user was the sender.",
     )
 
     try:
@@ -544,6 +551,7 @@ def main() -> None:
         validated_args.format,
         validated_args.start_date,
         validated_args.end_date,
+        validated_args.fees_only,
     )
 
 

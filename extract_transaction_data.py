@@ -40,6 +40,7 @@ def extract_transaction_data(
     transaction_type: str,
     wallet_address: str,
     chain: str,
+    fees_only: bool = False,
 ) -> list[Transaction]:
     extracted_data: list[Transaction] = []
 
@@ -138,6 +139,20 @@ def extract_transaction_data(
                 data["Net Worth Currency"] = "USD"
             except (ValueError, ArithmeticError):
                 pass
+
+        if fees_only:
+            # For fees-only mode, we only care about transactions where the user paid a fee (is_sender)
+            if not is_sender or not data.get("Fee Amount"):
+                continue
+            # Reset amounts to focus only on fees
+            data["Sent Amount"] = None
+            data["Sent Currency"] = None
+            data["Received Amount"] = None
+            data["Received Currency"] = None
+            data["Net Worth Amount"] = ""
+            data["Net Worth Currency"] = ""
+            data["Description"] = f"Gas Fee ({data['Description']})"
+            data["Label"] = "cost"
 
         extracted_data.append(Transaction.model_validate(data))
 
