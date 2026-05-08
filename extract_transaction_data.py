@@ -1,6 +1,8 @@
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Sequence, Union
+from tqdm import tqdm
 from config import NATIVE_CURRENCIES
 from models import (
     Raw1155Transfer,
@@ -44,101 +46,106 @@ def extract_transaction_data(
 ) -> list[Transaction]:
     extracted_data: list[Transaction] = []
 
-    for trx in transaction_data:
-        is_sender = trx.from_address.hash.lower() == wallet_address.lower()
-        is_receiver = trx.to_address.hash.lower() == wallet_address.lower()
+    for trx in tqdm(transaction_data, desc=f"Extracting {transaction_type} data", leave=False):
+        try:
+            is_sender = trx.from_address.hash.lower() == wallet_address.lower()
+            is_receiver = trx.to_address.hash.lower() == wallet_address.lower()
 
-        data = {
-            "Date": format_timestamp(trx.timeStamp),
-            "timestamp": int(trx.timeStamp),
-            "TxHash": trx.hash,
-            "Description": "",
-            "Sent Amount": None,
-            "Sent Currency": None,
-            "Received Amount": None,
-            "Received Currency": None,
-            "Fee Amount": None,
-            "Fee Currency": None,
-            "Net Worth Amount": "",
-            "Net Worth Currency": "",
-            "Label": categorize_transaction(trx, chain),
-        }
+            data = {
+                "Date": format_timestamp(trx.timeStamp),
+                "timestamp": int(trx.timeStamp),
+                "TxHash": trx.hash,
+                "Description": "",
+                "Sent Amount": None,
+                "Sent Currency": None,
+                "Received Amount": None,
+                "Received Currency": None,
+                "Fee Amount": None,
+                "Fee Currency": None,
+                "Net Worth Amount": "",
+                "Net Worth Currency": "",
+                "Label": categorize_transaction(trx, chain),
+            }
 
-        native_currency = NATIVE_CURRENCIES.get(chain, "ETH")
-        if isinstance(trx, RawTransaction):
-            data["Description"] = (
-                "internal"
-                if transaction_type == "internal_transaction"
-                else "transaction"
-            )
-            if is_sender:
-                data["Sent Amount"] = scale_amount(trx.value, 18)
-                data["Sent Currency"] = native_currency
-                if trx.gasPrice and trx.gasUsed:
-                    try:
-                        fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
-                        data["Fee Amount"] = scale_amount(fee_value, 18)
-                        data["Fee Currency"] = native_currency
-                    except (ValueError, TypeError):
-                        pass
-            if is_receiver:
-                data["Received Amount"] = scale_amount(trx.value, 18)
-                data["Received Currency"] = native_currency
+            native_currency = NATIVE_CURRENCIES.get(chain, "ETH")
+            if isinstance(trx, RawTransaction):
+                data["Description"] = (
+                    "internal"
+                    if transaction_type == "internal_transaction"
+                    else "transaction"
+                )
+                if is_sender:
+                    data["Sent Amount"] = scale_amount(trx.value, 18)
+                    data["Sent Currency"] = native_currency
+                    if trx.gasPrice and trx.gasUsed:
+                        try:
+                            fee_value = str(int(trx.gasUsed) * int(trx.gasPrice))
+                            data["Fee Amount"] = scale_amount(fee_value, 18)
+                            data["Fee Currency"] = native_currency
+                        except (ValueError, TypeError):
+                            pass
+                if is_receiver:
+                    data["Received Amount"] = scale_amount(trx.value, 18)
+                    data["Received Currency"] = native_currency
 
-        elif isinstance(trx, RawTokenTransfer):
-            data["Description"] = "token_transfer"
-            decimals = int(trx.tokenDecimal) if trx.tokenDecimal.isdigit() else 18
-            if is_sender:
-                data["Sent Amount"] = scale_amount(trx.total.value, decimals)
-                data["Sent Currency"] = trx.token.symbol
-            if is_receiver:
-                data["Received Amount"] = scale_amount(trx.total.value, decimals)
-                data["Received Currency"] = trx.token.symbol
+            elif isinstance(trx, RawTokenTransfer):
+                data["Description"] = "token_transfer"
+                decimals = int(trx.tokenDecimal) if trx.tokenDecimal.isdigit() else 18
+                if is_sender:
+                    data["Sent Amount"] = scale_amount(trx.total.value, decimals)
+                    data["Sent Currency"] = trx.token.symbol
+                if is_receiver:
+                    data["Received Amount"] = scale_amount(trx.total.value, decimals)
+                    data["Received Currency"] = trx.token.symbol
 
-        elif isinstance(trx, RawNFTTransfer):
-            data["Description"] = "nft_transfer"
-            if is_sender:
-                data["Sent Amount"] = "1"
-                data["Sent Currency"] = trx.tokenSymbol
-            if is_receiver:
-                data["Received Amount"] = "1"
-                data["Received Currency"] = trx.tokenSymbol
+            elif isinstance(trx, RawNFTTransfer):
+                data["Description"] = "nft_transfer"
+                if is_sender:
+                    data["Sent Amount"] = "1"
+                    data["Sent Currency"] = trx.tokenSymbol
+                if is_receiver:
+                    data["Received Amount"] = "1"
+                    data["Received Currency"] = trx.tokenSymbol
 
-        elif isinstance(trx, Raw1155Transfer):
-            data["Description"] = "1155_transfer"
-            if is_sender:
-                data["Sent Amount"] = trx.tokenValue
-                data["Sent Currency"] = trx.tokenSymbol
-            if is_receiver:
-                data["Received Amount"] = trx.tokenValue
-                data["Received Currency"] = trx.tokenSymbol
+            elif isinstance(trx, Raw1155Transfer):
+                data["Description"] = "1155_transfer"
+                if is_sender:
+                    data["Sent Amount"] = trx.tokenValue
+                    data["Sent Currency"] = trx.tokenSymbol
+                if is_receiver:
+                    data["Received Amount"] = trx.tokenValue
+                    data["Received Currency"] = trx.tokenSymbol
 
-        # Fetch and calculate net worth
-        price = None
-        amount_to_value = None
-        currency_to_value = None
+            # Fetch and calculate net worth
+            price = None
+            amount_to_value = None
+            currency_to_value = None
 
-        if data["Sent Amount"] and data["Sent Currency"]:
-            amount_to_value = data["Sent Amount"]
-            currency_to_value = data["Sent Currency"]
-            contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
-            price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
-        elif data["Received Amount"] and data["Received Currency"]:
-            amount_to_value = data["Received Amount"]
-            currency_to_value = data["Received Currency"]
-            contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
-            price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
+            if data["Sent Amount"] and data["Sent Currency"]:
+                amount_to_value = data["Sent Amount"]
+                currency_to_value = data["Sent Currency"]
+                contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
+                price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
+            elif data["Received Amount"] and data["Received Currency"]:
+                amount_to_value = data["Received Amount"]
+                currency_to_value = data["Received Currency"]
+                contract_address = trx.contractAddress if isinstance(trx, RawTokenTransfer) else None
+                price = get_token_price(chain, data["timestamp"], contract_address, currency_to_value)
 
-        if price is not None and amount_to_value:
-            try:
-                net_worth = Decimal(amount_to_value) * price
-                formatted_net_worth = format(net_worth, "f")
-                if "." in formatted_net_worth:
-                    formatted_net_worth = formatted_net_worth.rstrip("0").rstrip(".")
-                data["Net Worth Amount"] = formatted_net_worth if formatted_net_worth != "" else "0"
-                data["Net Worth Currency"] = "USD"
-            except (ValueError, ArithmeticError):
-                pass
+            if price is not None and amount_to_value:
+                try:
+                    net_worth = Decimal(amount_to_value) * price
+                    formatted_net_worth = format(net_worth, "f")
+                    if "." in formatted_net_worth:
+                        formatted_net_worth = formatted_net_worth.rstrip("0").rstrip(".")
+                    data["Net Worth Amount"] = formatted_net_worth if formatted_net_worth != "" else "0"
+                    data["Net Worth Currency"] = "USD"
+                except (ValueError, ArithmeticError):
+                    pass
+
+        except Exception as e:
+            logging.exception(f"Error extracting data for transaction {getattr(trx, 'hash', 'unknown')}: {e}")
+            continue
 
         if fees_only:
             # For fees-only mode, we only care about transactions where the user paid a fee (is_sender)

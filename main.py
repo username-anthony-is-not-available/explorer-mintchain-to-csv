@@ -32,9 +32,6 @@ from explorer_adapters import (
     OptimismAdapter,
     PolygonAdapter,
 )
-from json_writer import write_transaction_data_to_json
-from koinly_writer import write_transaction_data_to_koinly_csv
-from zenledger_writer import write_transaction_data_to_zenledger_csv
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 from balance_utils import calculate_token_balances, format_balance_summary
@@ -141,7 +138,7 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
     # Map from hash to a list of Transaction objects (to handle multiple movements with the same hash)
     tx_hash_to_merged: Dict[str, List[Transaction]] = {}
 
-    for tx in transactions:
+    for tx in tqdm(transactions, desc="Merging transactions", leave=False):
         tx_hash = tx.tx_hash
         if tx_hash not in tx_hash_to_merged:
             tx_hash_to_merged[tx_hash] = [tx.model_copy()]
@@ -234,7 +231,7 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
             tx_hash_to_merged[tx_hash].append(tx.model_copy())
 
     # Flatten the map back into a list and apply swap detection heuristic
-    for tx_list in tx_hash_to_merged.values():
+    for tx_list in tqdm(tx_hash_to_merged.values(), desc="Detecting swaps", leave=False):
         # Heuristically detect swaps based on the presence of both sent and received assets
         swap_label = detect_swap_from_transfers(tx_list)
 
@@ -338,7 +335,7 @@ def process_transactions(
         transactions = token_transfers = internal_transactions = nft_transfers = _1155_transfers = None
         
         # Track progress with tqdm
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Fetching blockchain data", unit="task"):
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Fetching blockchain data", unit="task", leave=False):
             task_type = futures[future]
             try:
                 result = future.result()
@@ -468,7 +465,7 @@ def process_single_wallet(
         return all_sorted_transactions
 
     except Exception as e:
-        logging.error(f"Failed to process address {wallet_address}: {e}")
+        logging.exception(f"Failed to process address {wallet_address}: {e}")
         raise
 
 
@@ -520,7 +517,7 @@ def process_batch_transactions(
                 else:
                     future.result()
             except Exception as e:
-                logging.error(f"Error processing wallet {wallet_address}: {e}")
+                logging.exception(f"Error processing wallet {wallet_address}: {e}")
 
     if consolidated and all_consolidated_transactions:
         # Sort all by date
