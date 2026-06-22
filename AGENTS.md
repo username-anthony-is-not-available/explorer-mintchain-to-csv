@@ -52,3 +52,12 @@ The application follows a modular architecture:
 -   **Pydantic Models**: Use Pydantic models for all data structures that are passed between modules to ensure data integrity. When instantiating models from dictionaries where field aliases are used, prefer `model_validate(dict)` over `**dict`.
 -   **Environment Variables**: All secrets (like API keys) and configuration that might vary between environments should be managed via a `.env` file. Do not commit secrets to the repository.
 -   **Dependencies**: Application dependencies are in `requirements.txt`. Development dependencies are in `requirements-dev.txt`.
+
+## Autonomous Management (IPM)
+
+This repository is managed autonomously by the Intelligent Project Manager (IPM). Agents working on this project must:
+
+1.  **Monitor the Backlog**: Check `BACKLOG.md` for prioritized tasks and milestones. Update the status of tasks as you complete them.
+2.  **Adhere to Standards**: Follow all guidelines defined in `STANDARDS.md`.
+3.  **Self-Correction**: If you identify a deviation from standards or a regression, prioritize fixing it before proceeding with new features.
+4.  **Verification**: Always run `python -m pytest` and `flake8` before submitting any changes to ensure quality.
