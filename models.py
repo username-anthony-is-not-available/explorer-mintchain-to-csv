@@ -15,6 +15,10 @@ class TransactionType(Enum):
     AIRDROP = "airdrop"
     MINING = "mining"
     COST = "cost"
+    LIQUIDITY_ADD = "liquidity_add"
+    LIQUIDITY_REMOVE = "liquidity_remove"
+    LEND = "lend"
+    BORROW = "borrow"
 
 
 class Address(BaseModel):

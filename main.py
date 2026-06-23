@@ -57,6 +57,9 @@ ADAPTERS: Dict[str, Type[ExplorerAdapter]] = {
     "polygon": PolygonAdapter,
 }
 
+# Global ThreadPoolExecutor for concurrent tasks
+GLOBAL_EXECUTOR = ThreadPoolExecutor(max_workers=10)
+
 
 class Args(BaseModel):
     wallet: Optional[str] = None
@@ -295,6 +298,7 @@ def process_transactions(
     end_date_str: Optional[str] = None,
     fees_only: bool = False,
     rpc_url: Optional[str] = None,
+    executor: ThreadPoolExecutor = GLOBAL_EXECUTOR,
 ) -> List[Transaction]:
     # Get the adapter for the selected chain
     adapter_class = ADAPTERS.get(chain)
@@ -322,44 +326,43 @@ def process_transactions(
         end_block = adapter.get_block_number_by_timestamp(end_ts, "before")
 
     # Fetch transactions concurrently
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {}
-        # Submit all tasks and map futures to task types
-        futures[executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)] = "transactions"
-        futures[executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)] = "token_transfers"
-        futures[executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)] = "internal_transactions"
-        futures[executor.submit(adapter.get_nft_transfers, wallet_address, start_block, end_block)] = "nft_transfers"
-        futures[executor.submit(adapter.get_1155_transfers, wallet_address, start_block, end_block)] = "1155_transfers"
+    futures = {}
+    # Submit all tasks and map futures to task types
+    futures[executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)] = "transactions"
+    futures[executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)] = "token_transfers"
+    futures[executor.submit(adapter.get_internal_transactions, wallet_address, start_block, end_block)] = "internal_transactions"
+    futures[executor.submit(adapter.get_nft_transfers, wallet_address, start_block, end_block)] = "nft_transfers"
+    futures[executor.submit(adapter.get_1155_transfers, wallet_address, start_block, end_block)] = "1155_transfers"
+
+    # Initialize variables
+    transactions = token_transfers = internal_transactions = nft_transfers = _1155_transfers = None
+
+    # Track progress with tqdm
+    for future in tqdm(as_completed(futures), total=len(futures), desc="Fetching blockchain data", unit="task", leave=False):
+        task_type = futures[future]
+        try:
+            result = future.result()
+        except Exception as e:
+            logging.error(f"Error fetching {task_type}: {e}")
+            result = []
         
-        # Initialize variables
-        transactions = token_transfers = internal_transactions = nft_transfers = _1155_transfers = None
-        
-        # Track progress with tqdm
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Fetching blockchain data", unit="task", leave=False):
-            task_type = futures[future]
-            try:
-                result = future.result()
-            except Exception as e:
-                logging.error(f"Error fetching {task_type}: {e}")
-                result = []
-            
-            if task_type == "transactions":
-                transactions = result
-            elif task_type == "token_transfers":
-                token_transfers = result
-            elif task_type == "internal_transactions":
-                internal_transactions = result
-            elif task_type == "nft_transfers":
-                nft_transfers = result
-            elif task_type == "1155_transfers":
-                _1155_transfers = result
-        
-        # Ensure all variables are set
-        transactions = transactions or []
-        token_transfers = token_transfers or []
-        internal_transactions = internal_transactions or []
-        nft_transfers = nft_transfers or []
-        _1155_transfers = _1155_transfers or []
+        if task_type == "transactions":
+            transactions = result
+        elif task_type == "token_transfers":
+            token_transfers = result
+        elif task_type == "internal_transactions":
+            internal_transactions = result
+        elif task_type == "nft_transfers":
+            nft_transfers = result
+        elif task_type == "1155_transfers":
+            _1155_transfers = result
+
+    # Ensure all variables are set
+    transactions = transactions or []
+    token_transfers = token_transfers or []
+    internal_transactions = internal_transactions or []
+    nft_transfers = nft_transfers or []
+    _1155_transfers = _1155_transfers or []
 
     # Extract transaction data
     extracted_regular_transactions = extract_transaction_data(
@@ -425,13 +428,14 @@ def process_single_wallet(
     total_count: int = 1,
     run_validation: bool = False,
     rpc_url: Optional[str] = None,
+    executor: ThreadPoolExecutor = GLOBAL_EXECUTOR,
 ) -> None:
     """
     Processes a single wallet address.
     """
     try:
         all_sorted_transactions = process_transactions(
-            wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url
+            wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url, executor=executor
         )
 
         # Convert Pydantic models to dictionaries for writers
@@ -488,36 +492,36 @@ def process_batch_transactions(
 
     all_consolidated_transactions = []
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {
-            executor.submit(
-                process_single_wallet,
-                wallet_address,
-                chain,
-                output_format,
-                start_date,
-                end_date,
-                fees_only,
-                consolidated,
-                i,
-                len(addresses),
-                run_validation,
-                rpc_url,
-            ): wallet_address
-            for i, wallet_address in enumerate(addresses)
-        }
+    futures = {
+        GLOBAL_EXECUTOR.submit(
+            process_single_wallet,
+            wallet_address,
+            chain,
+            output_format,
+            start_date,
+            end_date,
+            fees_only,
+            consolidated,
+            i,
+            len(addresses),
+            run_validation,
+            rpc_url,
+            GLOBAL_EXECUTOR,
+        ): wallet_address
+        for i, wallet_address in enumerate(addresses)
+    }
 
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
-            wallet_address = futures[future]
-            try:
-                if consolidated:
-                    txs = future.result()
-                    for tx in txs:
-                        all_consolidated_transactions.append((wallet_address, tx))
-                else:
-                    future.result()
-            except Exception as e:
-                logging.exception(f"Error processing wallet {wallet_address}: {e}")
+    for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
+        wallet_address = futures[future]
+        try:
+            if consolidated:
+                txs = future.result()
+                for tx in txs:
+                    all_consolidated_transactions.append((wallet_address, tx))
+            else:
+                future.result()
+        except Exception as e:
+            logging.exception(f"Error processing wallet {wallet_address}: {e}")
 
     if consolidated and all_consolidated_transactions:
         # Sort all by date
@@ -569,9 +573,19 @@ def main() -> None:
     parser.add_argument(
         "--format",
         type=str,
-        choices=["csv", "json", "cointracker", "cryptotaxcalculator", "koinly", "zenledger"],
+        choices=[
+            "csv",
+            "json",
+            "cointracker",
+            "cryptotaxcalculator",
+            "koinly",
+            "zenledger",
+            "cointracking",
+            "accointing",
+            "turbotax",
+        ],
         default="csv",
-        help="Output format (csv, json, cointracker, cryptotaxcalculator, koinly, or zenledger).",
+        help="Output format (csv, json, cointracker, cryptotaxcalculator, koinly, zenledger, cointracking, accointing, or turbotax).",
     )
     parser.add_argument(
         "--chain",

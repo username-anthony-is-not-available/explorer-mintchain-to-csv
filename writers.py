@@ -198,3 +198,85 @@ class WriterFactory:
         if not writer_class:
             raise ValueError(f"Unsupported format: {format_name}")
         return writer_class()
+
+class CoinTrackingWriter(BaseWriter):
+    def _map_type(self, trx: Dict[str, Any]) -> str:
+        label = trx.get('Label')
+        sent_amount = trx.get('Sent Amount')
+        received_amount = trx.get('Received Amount')
+
+        if label == 'swap': return 'Trade'
+        if sent_amount and received_amount: return 'Trade'
+        if sent_amount: return 'Withdrawal'
+        if received_amount: return 'Deposit'
+        return 'Withdrawal'
+
+    def write(self, output_file: str, transaction_data: List[Dict[str, Any]], **kwargs) -> None:
+        self._ensure_dir(output_file)
+        fieldnames = ['Type', 'Buy Amount', 'Buy Cur.', 'Sell Amount', 'Sell Cur.', 'Fee', 'Fee Cur.', 'Exchange', 'Group', 'Comment', 'Date', 'TxId']
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for trx in transaction_data:
+                writer.writerow({
+                    'Type': self._map_type(trx),
+                    'Buy Amount': trx.get('Received Amount'),
+                    'Buy Cur.': trx.get('Received Currency'),
+                    'Sell Amount': trx.get('Sent Amount'),
+                    'Sell Cur.': trx.get('Sent Currency'),
+                    'Fee': trx.get('Fee Amount'),
+                    'Fee Cur.': trx.get('Fee Currency'),
+                    'Exchange': kwargs.get('chain', 'Blockchain'),
+                    'Group': '',
+                    'Comment': trx.get('Description'),
+                    'Date': trx.get('Date'),
+                    'TxId': trx.get('TxHash')
+                })
+
+class AccointingWriter(BaseWriter):
+    def _map_type(self, trx: Dict[str, Any]) -> str:
+        sent_amount = trx.get('Sent Amount')
+        received_amount = trx.get('Received Amount')
+        if sent_amount and received_amount: return 'order'
+        if received_amount: return 'deposit'
+        return 'withdraw'
+
+    def write(self, output_file: str, transaction_data: List[Dict[str, Any]], **kwargs) -> None:
+        self._ensure_dir(output_file)
+        fieldnames = ['transaction_type', 'date', 'in_buy_amount', 'in_buy_asset', 'out_sell_amount', 'out_sell_asset', 'fee_amount', 'fee_asset', 'classification', 'operation_id']
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for trx in transaction_data:
+                writer.writerow({
+                    'transaction_type': self._map_type(trx),
+                    'date': trx.get('Date'),
+                    'in_buy_amount': trx.get('Received Amount'),
+                    'in_buy_asset': trx.get('Received Currency'),
+                    'out_sell_amount': trx.get('Sent Amount'),
+                    'out_sell_asset': trx.get('Sent Currency'),
+                    'fee_amount': trx.get('Fee Amount'),
+                    'fee_asset': trx.get('Fee Currency'),
+                    'classification': trx.get('Label'),
+                    'operation_id': trx.get('TxHash')
+                })
+
+class TurboTaxWriter(BaseWriter):
+    def write(self, output_file: str, transaction_data: List[Dict[str, Any]], **kwargs) -> None:
+        self._ensure_dir(output_file)
+        fieldnames = ['Date', 'Type', 'Sent Asset', 'Sent Amount', 'Received Asset', 'Received Amount', 'Fee Asset', 'Fee Amount', 'Transaction ID']
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for trx in transaction_data:
+                writer.writerow({
+                    'Date': trx.get('Date'),
+                    'Type': trx.get('Label'),
+                    'Sent Asset': trx.get('Sent Currency'),
+                    'Sent Amount': trx.get('Sent Amount'),
+                    'Received Asset': trx.get('Received Currency'),
+                    'Received Amount': trx.get('Received Amount'),
+                    'Fee Asset': trx.get('Fee Currency'),
+                    'Fee Amount': trx.get('Fee Amount'),
+                    'Transaction ID': trx.get('TxHash')
+                })
