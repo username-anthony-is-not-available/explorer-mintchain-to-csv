@@ -212,6 +212,18 @@ def test_categorize_as_staking_mintchain():
     transaction = RawTransaction.model_validate(raw_trx_data)
     assert categorize_transaction(transaction, "mintchain") == "staking"
 
+def test_categorize_as_lend_aave_v3():
+    """Test that a transaction to Aave V3 Pool is categorized as lend."""
+    aave_v3_pool = "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
+    transaction = create_mock_raw_transaction(aave_v3_pool)
+    assert categorize_transaction(transaction, "etherscan") == "lend"
+
+def test_categorize_as_swap_universal_router():
+    """Test that a transaction to Uniswap Universal Router is categorized as swap."""
+    universal_router = "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad"
+    transaction = create_mock_raw_transaction(universal_router)
+    assert categorize_transaction(transaction, "etherscan") == "swap"
+
 def test_detect_swap_from_transfers_no_swap():
     """Test that detect_swap_from_transfers returns empty for non-swap transactions."""
     tx1 = Transaction.model_validate({
@@ -257,3 +269,35 @@ def test_detect_swap_from_transfers_partial_swap():
         "TxHash": "0x123"
     })
     assert detect_swap_from_transfers([tx1]) == "swap"
+
+def test_detect_liquidity_add():
+    """Test detection of liquidity addition (2+ tokens sent, 1 received)."""
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Sent Amount": "1.0", "Sent Currency": "ETH", "Description": "transfer", "TxHash": "0x123"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Sent Amount": "100.0", "Sent Currency": "USDC", "Description": "token_transfer", "TxHash": "0x123"
+    })
+    tx3 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Received Amount": "10.0", "Received Currency": "UNI-V2", "Description": "token_transfer", "TxHash": "0x123"
+    })
+    assert detect_swap_from_transfers([tx1, tx2, tx3]) == "liquidity_add"
+
+def test_detect_liquidity_remove():
+    """Test detection of liquidity removal (1 token sent, 2+ received)."""
+    tx1 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Sent Amount": "10.0", "Sent Currency": "UNI-V2", "Description": "token_transfer", "TxHash": "0x123"
+    })
+    tx2 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Received Amount": "1.0", "Received Currency": "ETH", "Description": "transfer", "TxHash": "0x123"
+    })
+    tx3 = Transaction.model_validate({
+        "Date": "2023-01-01 00:00:00 UTC", "timestamp": 1672531200,
+        "Received Amount": "100.0", "Received Currency": "USDC", "Description": "token_transfer", "TxHash": "0x123"
+    })
+    assert detect_swap_from_transfers([tx1, tx2, tx3]) == "liquidity_remove"
