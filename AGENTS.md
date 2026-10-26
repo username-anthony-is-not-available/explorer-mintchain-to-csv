@@ -61,3 +61,11 @@ This repository is managed autonomously by the Intelligent Project Manager (IPM)
 2.  **Adhere to Standards**: Follow all guidelines defined in `STANDARDS.md`.
 3.  **Self-Correction**: If you identify a deviation from standards or a regression, prioritize fixing it before proceeding with new features.
 4.  **Verification**: Always run `python -m pytest` and `flake8` before submitting any changes to ensure quality.
+
+## GitHub Actions billing (owner policy, 2026-10-25)
+
+GitHub Actions is DISABLED on this repository. The owner does not pay for GitHub Actions.
+- Do NOT re-enable Actions in repository settings.
+- Do NOT add `.github/workflows` files or trigger workflow runs.
+- Do NOT request CI runs as part of any task.
+- Verify work locally instead; CI status is not a signal for this repo.
