@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List
 from models import Transaction
+from decimal_utils import add_exact
 
 def calculate_token_balances(transactions: List[Transaction]) -> Dict[str, Decimal]:
     """
@@ -13,19 +14,19 @@ def calculate_token_balances(transactions: List[Transaction]) -> Dict[str, Decim
         if tx.sent_amount and tx.sent_currency:
             symbol = tx.sent_currency
             amount = Decimal(tx.sent_amount)
-            balances[symbol] = balances.get(symbol, Decimal(0)) - amount
+            balances[symbol] = add_exact(balances.get(symbol, Decimal(0)), -amount)
 
         # Handle Received Amount
         if tx.received_amount and tx.received_currency:
             symbol = tx.received_currency
             amount = Decimal(tx.received_amount)
-            balances[symbol] = balances.get(symbol, Decimal(0)) + amount
+            balances[symbol] = add_exact(balances.get(symbol, Decimal(0)), amount)
 
         # Handle Fee (Fees are always sent)
         if tx.fee_amount and tx.fee_currency:
             symbol = tx.fee_currency
             amount = Decimal(tx.fee_amount)
-            balances[symbol] = balances.get(symbol, Decimal(0)) - amount
+            balances[symbol] = add_exact(balances.get(symbol, Decimal(0)), -amount)
 
     return balances
 
