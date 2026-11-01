@@ -9,7 +9,7 @@ from config import (
     COINGECKO_BASE_URL, COINGECKO_PLATFORM_MAP, TIMEOUT, NATIVE_CURRENCIES,
     DEFILLAMA_BASE_URL, DEFILLAMA_COIN_MAP, DEFILLAMA_PLATFORM_MAP
 )
-from fetch_blockchain_data import session
+from fetch_blockchain_data import logged_get
 
 # Cache for token prices to avoid redundant API calls and respect rate limits
 # Key format: "platform:contract_address:timestamp_day" for tokens
@@ -45,7 +45,7 @@ def get_defillama_price(
     params = {"tokens": token_id}
 
     try:
-        response = session.get(url, params=params, timeout=TIMEOUT)
+        response = logged_get(url, params=params, timeout=TIMEOUT)
         response.raise_for_status()
         data = response.json()
 
@@ -144,7 +144,7 @@ def _get_coin_id_from_contract(platform_id: str, contract_address: str) -> Optio
     headers = {"x-cg-demo-api-key": api_key} if api_key else {}
 
     try:
-        response = session.get(url, headers=headers, timeout=TIMEOUT)
+        response = logged_get(url, headers=headers, timeout=TIMEOUT)
         if response.status_code == 429:
             logging.warning("Coingecko rate limit exceeded. Sleeping for 30 seconds.")
             time.sleep(30)
@@ -165,7 +165,9 @@ def _fetch_price_by_coin_id(coin_id: str, date_str: str) -> Optional[Decimal]:
     headers = {"x-cg-demo-api-key": api_key} if api_key else {}
 
     try:
-        response = session.get(url, params=params, headers=headers, timeout=TIMEOUT)
+        response = logged_get(
+            url, params=params, headers=headers, timeout=TIMEOUT
+        )
         if response.status_code == 429:
             logging.warning("Coingecko rate limit exceeded. Sleeping for 30 seconds.")
             time.sleep(30)

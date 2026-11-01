@@ -151,14 +151,14 @@ def test_adapter_get_internal_transactions_success(mocked_responses):
     assert transactions[0].hash == "0xghi"
 
 
+@patch("time.sleep", return_value=None)
 @patch("fetch_blockchain_data.session.get")
-def test_fetch_data_retry_logic(mock_get, caplog):
-    # Configure the mock to raise a RequestException 5 times
-    mock_get.side_effect = RequestException("Test Exception")
+def test_fetch_data_retry_logic(mock_get, mock_sleep, caplog):
     base_url = EXPLORER_URLS[CHAIN]
-    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&startblock=0&endblock=99999999&sort=asc&page=1&offset=10000"
+    mock_url = f"{base_url}?module=account&action=txlist&address={WALLET_ADDRESS}&apikey=DO_NOT_LOG_ME"
+    mock_get.side_effect = RequestException(f"Test Exception while fetching {mock_url}")
 
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.INFO):
         result = fetch_data(mock_url, RawTransaction)
 
     # Check that the function was called 5 times
@@ -169,6 +169,32 @@ def test_fetch_data_retry_logic(mock_get, caplog):
 
     # Check that the error was logged
     assert "An error occurred while fetching data after multiple retries" in caplog.text
+    assert "status_code=unavailable" in caplog.text
+    assert "error_type=RequestException" in caplog.text
+    assert "apikey=REDACTED" in caplog.text
+    assert "DO_NOT_LOG_ME" not in caplog.text
+
+
+def test_fetch_data_logs_status_duration_and_redacts_api_key(caplog):
+    endpoint = "https://api.example.test/tx?module=account&apiKey=SECRET_API_KEY_VALUE"
+    response = Mock(status_code=200)
+    response.json.return_value = {"status": "1", "message": "OK", "result": []}
+
+    with patch("fetch_blockchain_data.session.get", return_value=response) as mock_get:
+        with patch("fetch_blockchain_data.cache_manager.set_response"):
+            with patch(
+                "fetch_blockchain_data.time.perf_counter", side_effect=[10.0, 10.125]
+            ):
+                with caplog.at_level(logging.INFO):
+                    result = fetch_data(endpoint, RawTransaction)
+
+    assert result == []
+    mock_get.assert_called_once()
+    assert "API request method=GET" in caplog.text
+    assert "status_code=200" in caplog.text
+    assert "duration_ms=125.00" in caplog.text
+    assert "apiKey=REDACTED" in caplog.text
+    assert "SECRET_API_KEY_VALUE" not in caplog.text
 
 
 @patch("time.sleep", return_value=None)
@@ -271,15 +297,19 @@ def test_adapter_unsupported_chain():
         adapter.get_transactions(WALLET_ADDRESS)
 
 
-def test_adapter_get_block_number_by_timestamp(mocked_responses):
+def test_adapter_get_block_number_by_timestamp(mocked_responses, caplog, monkeypatch):
     """
     Verify that get_block_number_by_timestamp correctly calls the API and returns the block number.
     """
     EtherscanAdapter._block_cache.clear()
-    adapter = MintchainAdapter(CHAIN)
-    base_url = EXPLORER_URLS[CHAIN]
+    monkeypatch.setenv("ETHERSCAN_API_KEY", "BLOCK_API_KEY_SHOULD_NOT_BE_LOGGED")
+    adapter = EtherscanAdapter("etherscan")
+    base_url = EXPLORER_URLS["etherscan"]
     timestamp = 1725148800
-    mock_url = f"{base_url}?module=block&action=getblocknobytime&timestamp={timestamp}&closest=before"
+    mock_url = (
+        f"{base_url}?module=block&action=getblocknobytime&timestamp={timestamp}"
+        f"&closest=before&apikey=BLOCK_API_KEY_SHOULD_NOT_BE_LOGGED"
+    )
 
     mocked_responses.add(
         responses.GET,
@@ -288,9 +318,14 @@ def test_adapter_get_block_number_by_timestamp(mocked_responses):
         status=200,
     )
 
-    block_number = adapter.get_block_number_by_timestamp(timestamp, "before")
+    with caplog.at_level(logging.INFO):
+        block_number = adapter.get_block_number_by_timestamp(timestamp, "before")
     assert block_number == 4769934
     assert len(mocked_responses.calls) == 1
+    assert "API request method=GET" in caplog.text
+    assert "status_code=200" in caplog.text
+    assert "apikey=REDACTED" in caplog.text
+    assert "BLOCK_API_KEY_SHOULD_NOT_BE_LOGGED" not in caplog.text
 
 
 def test_adapter_get_block_number_by_timestamp_error(mocked_responses):

@@ -2,8 +2,10 @@ import json
 import logging
 import os
 from typing import Optional, Tuple
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
+
+from requests.exceptions import RequestException
+
+from fetch_blockchain_data import logged_get
 
 logger = logging.getLogger(__name__)
 
@@ -22,21 +24,20 @@ def get_latest_version(repo_owner: str, repo_name: str) -> Optional[str]:
         The latest version string (e.g., "v1.2.3") or None if fetch fails.
     """
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/releases/latest"
+    headers = {"User-Agent": "explorer-mintchain-to-csv"}
+
+    # Add GitHub token if available (for higher rate limits).
+    github_token = os.getenv("GITHUB_TOKEN")
+    if github_token:
+        headers["Authorization"] = f"token {github_token}"
+
     try:
-        request = Request(url)
-        # Add user agent (required by GitHub API)
-        request.add_header("User-Agent", "explorer-mintchain-to-csv")
-        
-        # Add GitHub token if available (for higher rate limits)
-        github_token = os.getenv("GITHUB_TOKEN")
-        if github_token:
-            request.add_header("Authorization", f"token {github_token}")
-        
-        with urlopen(request, timeout=5) as response:
-            data = json.loads(response.read().decode())
-            return data.get("tag_name")
-    except (URLError, HTTPError, json.JSONDecodeError, KeyError) as e:
-        logger.debug(f"Failed to fetch latest version: {e}")
+        response = logged_get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("tag_name")
+    except (RequestException, json.JSONDecodeError, KeyError) as e:
+        logger.debug("Failed to fetch latest version: %s", type(e).__name__)
         return None
 
 def compare_versions(current: str, latest: str) -> int:
