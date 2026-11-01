@@ -47,3 +47,34 @@ def test_format_balance_summary():
     assert "5.4" in summary
     assert "USDC" in summary
     assert "100" in summary
+
+
+def test_calculate_token_balances_preserves_large_value_precision():
+    transactions = [
+        Transaction.model_validate(
+            {
+                "Date": "2024-01-01 00:00:00 UTC",
+                "timestamp": 1,
+                "Received Amount": "123456789012345678901234567890.12345678901234567890",
+                "Received Currency": "TOK",
+                "TxHash": "0x1",
+                "Description": "large token receipt",
+            }
+        ),
+        Transaction.model_validate(
+            {
+                "Date": "2024-01-01 00:00:01 UTC",
+                "timestamp": 2,
+                "Received Amount": "0.00000000000000000001",
+                "Received Currency": "TOK",
+                "TxHash": "0x2",
+                "Description": "small token receipt",
+            }
+        ),
+    ]
+
+    balances = calculate_token_balances(transactions)
+
+    assert balances["TOK"] == Decimal(
+        "123456789012345678901234567890.12345678901234567891"
+    )

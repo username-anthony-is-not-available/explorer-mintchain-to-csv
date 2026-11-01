@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Sequence, Union
 from tqdm import tqdm
 from config import NATIVE_CURRENCIES
+from decimal_utils import multiply_exact
 from models import (
     Raw1155Transfer,
     RawNFTTransfer,
@@ -23,7 +24,11 @@ def scale_amount(amount: str, decimals: int) -> str:
     """Scales an amount from base units to decimal units."""
     if not amount or not amount.isdigit():
         return amount
-    scaled = Decimal(amount) / Decimal(10**decimals)
+    raw_amount = Decimal(amount)
+    sign, digits, exponent = raw_amount.as_tuple()
+    # Shifting the exponent is exact; division can round large token values to
+    # the active Decimal context's default precision.
+    scaled = Decimal((sign, digits, exponent - decimals))
     # Format to string, avoiding scientific notation and stripping trailing zeros
     formatted = format(scaled, "f")
     if "." in formatted:
@@ -134,7 +139,7 @@ def extract_transaction_data(
 
             if price is not None and amount_to_value:
                 try:
-                    net_worth = Decimal(amount_to_value) * price
+                    net_worth = multiply_exact(Decimal(amount_to_value), price)
                     formatted_net_worth = format(net_worth, "f")
                     if "." in formatted_net_worth:
                         formatted_net_worth = formatted_net_worth.rstrip("0").rstrip(".")

@@ -489,3 +489,35 @@ def test_main_year_flag(mock_adapter):
                 None,
                 False,
             )
+
+
+def test_merge_transactions_preserves_large_value_precision():
+    base_fields = {
+        "Date": "2023-01-01 00:00:00 UTC",
+        "timestamp": 1,
+        "Sent Currency": "TOK",
+        "TxHash": "0xhash_precision",
+        "Label": "transfer",
+    }
+    tx1 = Transaction.model_validate(
+        {
+            **base_fields,
+            "Sent Amount": "123456789012345678901234567890.12345678901234567890",
+            "Description": "large movement",
+        }
+    )
+    tx2 = Transaction.model_validate(
+        {
+            **base_fields,
+            "Sent Amount": "0.00000000000000000001",
+            "Description": "small movement",
+        }
+    )
+
+    merged_txs = merge_transactions_by_hash([tx1, tx2])
+
+    assert len(merged_txs) == 1
+    assert (
+        merged_txs[0].sent_amount
+        == "123456789012345678901234567890.12345678901234567891"
+    )
