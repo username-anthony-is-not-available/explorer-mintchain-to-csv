@@ -1,6 +1,31 @@
+from decimal import Decimal, InvalidOperation
 from typing import Any, Optional, Union
-from pydantic import BaseModel, Field, AliasChoices, model_validator
+from pydantic import BaseModel, Field, AliasChoices, field_validator, model_validator
 from enum import Enum
+
+
+def _validate_unsigned_integer(value: str) -> str:
+    if not value.isascii() or not value.isdigit():
+        raise ValueError("must be a non-negative integer string")
+    return value
+
+
+def _validate_optional_unsigned_integer(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return _validate_unsigned_integer(value)
+
+
+def _validate_decimal_amount(value: Optional[str]) -> Optional[str]:
+    if value is None or value == "":
+        return value
+    try:
+        amount = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("must be a valid decimal amount") from exc
+    if not amount.is_finite() or amount < 0:
+        raise ValueError("must be a finite, non-negative decimal amount")
+    return value
 
 
 class TransactionType(Enum):
@@ -39,6 +64,11 @@ class Token(BaseModel):
 class Total(BaseModel):
     value: str
 
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, value: str) -> str:
+        return _validate_unsigned_integer(value)
+
 
 class RawTransaction(BaseModel):
     hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
@@ -48,6 +78,16 @@ class RawTransaction(BaseModel):
     value: str
     gasUsed: Optional[str] = Field(None, validation_alias=AliasChoices("gasUsed", "gas"))
     gasPrice: Optional[str] = None
+
+    @field_validator("timeStamp", "value")
+    @classmethod
+    def validate_integer_fields(cls, value: str) -> str:
+        return _validate_unsigned_integer(value)
+
+    @field_validator("gasUsed", "gasPrice")
+    @classmethod
+    def validate_optional_integer_fields(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_optional_unsigned_integer(value)
 
 
 class RawTokenTransfer(BaseModel):
@@ -60,6 +100,11 @@ class RawTokenTransfer(BaseModel):
     tokenDecimal: str
     contractAddress: str
 
+    @field_validator("tokenDecimal")
+    @classmethod
+    def validate_token_decimals(cls, value: str) -> str:
+        return _validate_unsigned_integer(value)
+
 
 class RawNFTTransfer(BaseModel):
     hash: str = Field(..., validation_alias=AliasChoices("hash", "transactionHash"))
@@ -70,6 +115,16 @@ class RawNFTTransfer(BaseModel):
     tokenName: str
     tokenSymbol: str
     tokenDecimal: Optional[str] = "0"
+
+    @field_validator("tokenID")
+    @classmethod
+    def validate_token_id(cls, value: str) -> str:
+        return _validate_unsigned_integer(value)
+
+    @field_validator("tokenDecimal")
+    @classmethod
+    def validate_token_decimals(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_optional_unsigned_integer(value)
 
 
 class Raw1155Transfer(BaseModel):
@@ -82,10 +137,15 @@ class Raw1155Transfer(BaseModel):
     tokenName: str
     tokenSymbol: str
 
+    @field_validator("tokenID", "tokenValue")
+    @classmethod
+    def validate_integer_fields(cls, value: str) -> str:
+        return _validate_unsigned_integer(value)
+
 
 class Transaction(BaseModel):
     date: str = Field(..., alias="Date")
-    timestamp: int = Field(..., exclude=True)
+    timestamp: int = Field(..., exclude=True, ge=0)
     sent_amount: Optional[str] = Field(None, alias="Sent Amount")
     sent_currency: Optional[str] = Field(None, alias="Sent Currency")
     received_amount: Optional[str] = Field(None, alias="Received Amount")
@@ -97,6 +157,11 @@ class Transaction(BaseModel):
     label: Optional[Union[TransactionType, str]] = Field(None, alias="Label")
     description: str = Field(..., alias="Description")
     tx_hash: str = Field(..., alias="TxHash")
+
+    @field_validator("sent_amount", "received_amount", "fee_amount", "net_worth_amount")
+    @classmethod
+    def validate_amount_fields(cls, value: Optional[str]) -> Optional[str]:
+        return _validate_decimal_amount(value)
 
     @model_validator(mode="after")
     def check_amounts_and_currencies(self) -> "Transaction":
