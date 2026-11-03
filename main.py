@@ -434,9 +434,14 @@ def process_single_wallet(
     Processes a single wallet address.
     """
     try:
-        all_sorted_transactions = process_transactions(
-            wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url, executor=executor
-        )
+        if executor is GLOBAL_EXECUTOR:
+            all_sorted_transactions = process_transactions(
+                wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url
+            )
+        else:
+            all_sorted_transactions = process_transactions(
+                wallet_address, chain, start_date, end_date, fees_only=fees_only, rpc_url=rpc_url, executor=executor
+            )
 
         # Convert Pydantic models to dictionaries for writers
         output_data = [trx.model_dump(by_alias=True) for trx in all_sorted_transactions]
