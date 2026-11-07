@@ -152,6 +152,7 @@ python main.py
 | `--year`       | Tax year to export (e.g., 2024). Sets start-date to Jan 1 and end-date to Dec 31.   |
 | `--format`     | Output format: `csv`, `json`, `koinly`, `cointracker`, `cryptotaxcalculator`.          |
 | `--chain`      | Blockchain explorer to use: `mintchain` (default), `etherscan`, `basescan`, `arbiscan`. |
+| `--password`   | Password to decrypt the `.env` file if it has been encrypted with `encrypt_env.py`.   |
 
 ### Examples
 
@@ -186,6 +187,42 @@ python main.py --address-file my_wallets.txt --chain arbiscan --format koinly
 ```
 
 The output files will be saved to the `output/` folder with a separate file for each wallet (e.g., `output/0xYourWalletAddressHere_transactions.csv`).
+
+## Environment Variable Encryption
+
+To safeguard sensitive API keys and wallet addresses, you can encrypt your `.env` file using the provided `encrypt_env.py` utility:
+
+### Encrypting `.env`
+
+Encrypt your `.env` file in-place:
+```bash
+python encrypt_env.py --password "your-strong-password"
+```
+
+You can also specify a custom file path:
+```bash
+python encrypt_env.py --password "your-strong-password" --file /path/to/.env
+```
+
+### Decrypting `.env`
+
+Decrypt your encrypted file back to plain text:
+```bash
+python encrypt_env.py --password "your-strong-password" --decrypt
+```
+
+Or decrypt to a specific destination without overwriting the encrypted file:
+```bash
+python encrypt_env.py --password "your-strong-password" --decrypt --output .env.decrypted
+```
+
+### Running with Encrypted `.env`
+
+When your `.env` file is encrypted, pass `--password` or set the `ENV_PASSWORD` environment variable when running `main.py`:
+
+```bash
+python main.py --password "your-strong-password"
+```
 
 ## MintChain Tax Guide
 
