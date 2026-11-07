@@ -124,9 +124,12 @@ PYTHONPATH=. pytest
    WALLET_ADDRESSES=address1,address2,address3
 
    # API keys for blockchain explorers (optional, but recommended for higher rate limits)
+   # Supports single key or comma-separated keys for automatic key rotation (e.g. key1,key2)
    ETHERSCAN_API_KEY=
    BASESCAN_API_KEY=
    ARBISCAN_API_KEY=
+   OPTIMISM_API_KEY=
+   POLYGON_API_KEY=
    ```
 
    **Note:** While API keys are optional, it is highly recommended to generate and use them to avoid rate-limiting issues with the public API endpoints.

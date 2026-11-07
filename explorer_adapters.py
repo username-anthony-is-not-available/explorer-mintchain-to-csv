@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 
 from pydantic import BaseModel
 
+from api_key_manager import api_key_manager
 from config import EXPLORER_API_KEYS, EXPLORER_URLS, TIMEOUT
 from fetch_blockchain_data import fetch_data, logged_get
 from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction
@@ -23,7 +24,26 @@ class ExplorerAdapter(ABC):
         env_var = f"RPC_URL_{self.chain.upper()}"
         return os.getenv(env_var)
 
-    def _get_explorer_api_url(self, params: Dict[str, Any]) -> str:
+    def get_api_key(self, rotate: bool = False) -> Optional[str]:
+        """Retrieves active API key for this chain using APIKeyManager."""
+        key = api_key_manager.get_key(self.chain, rotate=rotate)
+        if not key:
+            api_key_env_var = EXPLORER_API_KEYS.get(self.chain)
+            if api_key_env_var:
+                key = os.getenv(api_key_env_var)
+        return key
+
+    def rotate_api_key(self) -> Optional[str]:
+        """Rotates to the next active API key for this chain."""
+        return api_key_manager.rotate_key(self.chain)
+
+    def invalidate_api_key(self, key: Optional[str] = None, reason: str = "") -> None:
+        """Invalidates an API key for this chain."""
+        target_key = key or self.get_api_key()
+        if target_key:
+            api_key_manager.invalidate_key(self.chain, target_key, reason=reason)
+
+    def _get_explorer_api_url(self, params: Dict[str, Any], rotate_key: bool = False) -> str:
         """Constructs the full API URL for a given chain and parameters."""
         base_url = self.rpc_url or EXPLORER_URLS.get(self.chain)
         if not base_url:
@@ -32,11 +52,9 @@ class ExplorerAdapter(ABC):
         # Create a copy to avoid mutating the original params dictionary
         query_params = params.copy()
 
-        api_key_env_var = EXPLORER_API_KEYS.get(self.chain)
-        if api_key_env_var:
-            api_key = os.getenv(api_key_env_var)
-            if api_key:
-                query_params["apikey"] = api_key
+        api_key = self.get_api_key(rotate=rotate_key)
+        if api_key:
+            query_params["apikey"] = api_key
 
         encoded_params = urlencode(query_params)
         return f"{base_url}?{encoded_params}"
