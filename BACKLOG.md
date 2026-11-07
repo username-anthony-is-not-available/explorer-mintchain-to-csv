@@ -28,6 +28,7 @@ This backlog tracks the progress of the `explorer-mintchain-to-csv` project.
 ### Operations & Maintenance
 - [x] Dockerization for scheduled runs
 - [x] CI/CD with GitHub Actions (Tests & Security Audit)
+- [x] Log API request method, status, and duration while redacting URL credentials (Issue #190)
 - [ ] Automated weekly regression testing against "Golden Master" hashes
 - [ ] Documentation: Comprehensive API adapter guide
 

@@ -1,3 +1,4 @@
+import logging
 import pytest
 import responses
 from decimal import Decimal
@@ -9,7 +10,7 @@ def mocked_responses():
     with responses.RequestsMock() as rsps:
         yield rsps
 
-def test_get_native_token_price(mocked_responses):
+def test_get_native_token_price(mocked_responses, caplog):
     _price_cache.clear()
     chain = "ethereum"
     timestamp = 1672531200  # 2023-01-01
@@ -28,9 +29,13 @@ def test_get_native_token_price(mocked_responses):
         status=200
     )
 
-    price = get_token_price(chain, timestamp)
+    with caplog.at_level(logging.INFO):
+        price = get_token_price(chain, timestamp)
     assert price == Decimal("1200.5")
     assert len(mocked_responses.calls) == 1
+    assert "API request method=GET" in caplog.text
+    assert "status_code=200" in caplog.text
+    assert "date=01-01-2023" in caplog.text
 
     # Test caching
     price_cached = get_token_price(chain, timestamp)

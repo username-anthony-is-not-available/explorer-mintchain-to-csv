@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from pydantic import BaseModel
 
 from config import EXPLORER_API_KEYS, EXPLORER_URLS, TIMEOUT
-from fetch_blockchain_data import fetch_data, session
+from fetch_blockchain_data import fetch_data, logged_get
 from models import Raw1155Transfer, RawNFTTransfer, RawTokenTransfer, RawTransaction
 
 T = TypeVar("T", bound=BaseModel)
@@ -185,7 +185,7 @@ class EtherscanAdapter(ExplorerAdapter):
         url = self._get_explorer_api_url(params)
         try:
             # Using a raw fetch here as we just want the block number string
-            response = session.get(url, timeout=TIMEOUT)
+            response = logged_get(url, timeout=TIMEOUT)
             response.raise_for_status()
             data = response.json()
             if data.get("status") == "1":
