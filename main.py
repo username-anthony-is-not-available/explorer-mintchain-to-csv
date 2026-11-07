@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional, Type
 
+from decimal_utils import add_exact
 from dotenv import load_dotenv
 from pydantic import BaseModel, ValidationError, field_validator, model_validator
 from security_utils import decrypt_and_load_env
@@ -174,8 +175,8 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
                 if tx.sent_amount:
                     if existing_tx.sent_amount:
                         try:
-                            new_amount = Decimal(existing_tx.sent_amount) + Decimal(
-                                tx.sent_amount
+                            new_amount = add_exact(
+                                Decimal(existing_tx.sent_amount), Decimal(tx.sent_amount)
                             )
                             formatted = format(new_amount, "f")
                             if "." in formatted:
@@ -192,8 +193,8 @@ def merge_transactions_by_hash(transactions: List[Transaction]) -> List[Transact
                 if tx.received_amount:
                     if existing_tx.received_amount:
                         try:
-                            new_amount = Decimal(existing_tx.received_amount) + Decimal(
-                                tx.received_amount
+                            new_amount = add_exact(
+                                Decimal(existing_tx.received_amount), Decimal(tx.received_amount)
                             )
                             formatted = format(new_amount, "f")
                             if "." in formatted:

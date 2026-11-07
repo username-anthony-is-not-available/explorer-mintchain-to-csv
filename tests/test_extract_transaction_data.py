@@ -230,3 +230,27 @@ def test_extract_transaction_data_internal_transaction_received(mock_get_price):
     assert trx.received_currency == "ETH"
     assert trx.sent_amount is None
     assert trx.fee_amount is None
+
+
+@patch("extract_transaction_data.get_token_price")
+def test_extract_transaction_data_preserves_large_value_precision(mock_get_price):
+    mock_get_price.return_value = Decimal("1.23456789")
+    raw_trx = RawTransaction.model_validate(
+        {
+            "hash": "0xlarge",
+            "from": {"hash": WALLET_ADDRESS},
+            "to": {"hash": "0x456"},
+            "value": "1234567890123456789012345678901234567891",
+            "timeStamp": "1672531200",
+        }
+    )
+
+    transactions = extract_transaction_data(
+        [raw_trx], "transaction", WALLET_ADDRESS, "mintchain"
+    )
+
+    assert transactions[0].sent_amount == "1234567890123456789012.345678901234567891"
+    assert (
+        transactions[0].net_worth_amount
+        == "1524157875171467887517.14678875171467887625361999"
+    )
