@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -36,6 +37,7 @@ from explorer_adapters import (
 from models import Transaction, TransactionType
 from config import EXPLORER_URLS
 from balance_utils import calculate_token_balances, format_balance_summary
+from metrics import metrics_collector
 from version_check import print_update_notification
 
 # Load environment variables (will be handled in main if password provided)
@@ -74,6 +76,7 @@ class Args(BaseModel):
     consolidated: bool = False
     run_validation: bool = False
     rpc_url: Optional[str] = None
+    metrics_file: Optional[str] = None
 
     @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -500,6 +503,7 @@ def process_batch_transactions(
         return
 
     logging.info(f"Starting batch process for {total} wallet(s) on {chain}...")
+    batch_start = time.perf_counter()
 
     all_consolidated_transactions = []
     # Use a dedicated wallet-level executor separate from GLOBAL_EXECUTOR (used for per-wallet
@@ -530,13 +534,17 @@ def process_batch_transactions(
         for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
             wallet_address = futures[future]
             try:
-                if consolidated:
-                    txs = future.result()
+                txs = future.result()
+                tx_count = len(txs) if txs is not None else 0
+                metrics_collector.record_wallet_processed(success=True)
+                metrics_collector.record_transactions_exported(
+                    chain, output_format, tx_count
+                )
+                if consolidated and txs:
                     for tx in txs:
                         all_consolidated_transactions.append((wallet_address, tx))
-                else:
-                    future.result()
             except Exception as e:
+                metrics_collector.record_wallet_processed(success=False)
                 logging.exception(f"Error processing wallet {wallet_address}: {e}")
 
     if consolidated and all_consolidated_transactions:
@@ -568,6 +576,9 @@ def process_batch_transactions(
         writer.write(output_file, output_data, chain=chain, consolidated=True)
 
         logging.info(f"Successfully wrote {len(output_data)} consolidated transactions to {output_file}")
+
+    metrics_collector.record_batch_duration(max(0.0, time.perf_counter() - batch_start))
+    logging.info(metrics_collector.format_summary())
 
 
 # Main function
@@ -641,6 +652,11 @@ def main() -> None:
         type=int,
         help="Tax year to export (e.g., 2024). Sets start-date to Jan 1 and end-date to Dec 31 of specified year.",
     )
+    parser.add_argument(
+        "--metrics-file",
+        type=str,
+        help="Optional output path to write Prometheus exposition metrics (.prom).",
+    )
 
     try:
         args = parser.parse_args()
@@ -711,6 +727,11 @@ def main() -> None:
         validated_args.rpc_url,
         validated_args.run_validation,
     )
+
+    metrics_file = validated_args.metrics_file or os.getenv("METRICS_FILE")
+    if isinstance(metrics_file, str) and metrics_file.strip():
+        metrics_collector.write_prometheus_file(metrics_file.strip())
+        logging.info(f"Wrote Prometheus metrics to {metrics_file.strip()}")
 
 
 if __name__ == "__main__":

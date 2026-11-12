@@ -156,6 +156,7 @@ python main.py
 | `--format`     | Output format: `csv`, `json`, `koinly`, `cointracker`, `cryptotaxcalculator`.          |
 | `--chain`      | Blockchain explorer to use: `mintchain` (default), `etherscan`, `basescan`, `arbiscan`. |
 | `--password`   | Password to decrypt the `.env` file if it has been encrypted with `encrypt_env.py`.   |
+| `--metrics-file` | Optional path to write Prometheus exposition metrics (`.prom`) after a run.         |
 
 ### Examples
 

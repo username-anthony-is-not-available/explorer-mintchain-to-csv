@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
@@ -15,6 +15,7 @@ from tenacity import (
 
 from cache_manager import cache_manager
 from config import TIMEOUT
+from metrics import metrics_collector
 from models import RawTokenTransfer, RawTransaction
 
 # Initialize a global session for connection pooling
@@ -78,9 +79,15 @@ def _log_request(
     started_at: float,
     status_code: Any = None,
     error_type: str = "",
+    elapsed_seconds: Optional[float] = None,
 ) -> None:
     """Log one network attempt without exposing credentials in its URL."""
-    duration_ms = (time.perf_counter() - started_at) * 1000
+    resolved_elapsed = (
+        elapsed_seconds
+        if elapsed_seconds is not None
+        else (time.perf_counter() - started_at)
+    )
+    duration_ms = resolved_elapsed * 1000
     safe_status = status_code if status_code is not None else "unavailable"
     level = logging.WARNING if error_type else logging.INFO
     if isinstance(status_code, int) and status_code >= 400:
@@ -108,7 +115,7 @@ def _log_request(
 
 
 def logged_get(endpoint: str, **kwargs: Any) -> requests.Response:
-    """Perform a shared-session GET and log its status and elapsed time."""
+    """Perform a shared-session GET, log its status/timing, and record metrics."""
     log_endpoint = endpoint
     params = kwargs.get("params")
     if params:
@@ -124,13 +131,33 @@ def logged_get(endpoint: str, **kwargs: Any) -> requests.Response:
     try:
         response = session.get(endpoint, **kwargs)
     except Exception as e:
-        _log_request(log_endpoint, started_at, error_type=type(e).__name__)
+        elapsed_seconds = max(0.0, time.perf_counter() - started_at)
+        error_type = type(e).__name__
+        _log_request(
+            log_endpoint,
+            started_at,
+            error_type=error_type,
+            elapsed_seconds=elapsed_seconds,
+        )
+        metrics_collector.record_api_request(
+            "GET",
+            elapsed_seconds,
+            error_type=error_type,
+        )
         raise
 
+    elapsed_seconds = max(0.0, time.perf_counter() - started_at)
+    status_code = getattr(response, "status_code", None)
     _log_request(
         log_endpoint,
         started_at,
-        status_code=getattr(response, "status_code", None),
+        status_code=status_code,
+        elapsed_seconds=elapsed_seconds,
+    )
+    metrics_collector.record_api_request(
+        "GET",
+        elapsed_seconds,
+        status_code=status_code if isinstance(status_code, int) else None,
     )
     return response
 
@@ -165,6 +192,11 @@ def _log_and_return_empty(retry_state):
         type(exception).__name__,
     )
     return []
+
+
+def _record_retry_metric(_retry_state: Any) -> None:
+    """Increment retry counter before sleeping between tenacity attempts."""
+    metrics_collector.record_retry()
 
 
 def _process_response_data(
@@ -221,6 +253,7 @@ def _process_response_data(
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_retry_after_or_exponential,
+    before_sleep=_record_retry_metric,
     retry_error_callback=_log_and_return_empty,
     retry=retry_if_exception_type(RequestException),
 )
@@ -228,6 +261,7 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
     # Check cache first
     cached_data = cache_manager.get_response(endpoint)
     if cached_data:
+        metrics_collector.record_cache_hit()
         logging.debug("Using cached response for %s", _redact_endpoint(endpoint))
         try:
             return _process_response_data(cached_data, model, endpoint)
@@ -235,6 +269,8 @@ def fetch_data(endpoint: str, model: Type[T]) -> List[T]:
             # If cached data somehow triggers a rate limit exception (unlikely),
             # treat it as a cache miss or error.
             pass
+    else:
+        metrics_collector.record_cache_miss()
 
     try:
         response = logged_get(endpoint, timeout=TIMEOUT)
