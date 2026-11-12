@@ -4,10 +4,10 @@ import logging
 import os
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from decimal_utils import add_exact
 from dotenv import load_dotenv
@@ -327,7 +327,7 @@ def process_transactions(
         end_block = adapter.get_block_number_by_timestamp(end_ts, "before")
 
     # Fetch transactions concurrently
-    futures = {}
+    futures: Dict[Future[Any], str] = {}
     # Submit all tasks and map futures to task types
     futures[executor.submit(adapter.get_transactions, wallet_address, start_block, end_block)] = "transactions"
     futures[executor.submit(adapter.get_token_transfers, wallet_address, start_block, end_block)] = "token_transfers"
@@ -430,9 +430,9 @@ def process_single_wallet(
     run_validation: bool = False,
     rpc_url: Optional[str] = None,
     executor: ThreadPoolExecutor = GLOBAL_EXECUTOR,
-) -> None:
+) -> List[Transaction]:
     """
-    Processes a single wallet address.
+    Processes a single wallet address and returns its sorted transactions.
     """
     try:
         if executor is GLOBAL_EXECUTOR:
@@ -489,45 +489,55 @@ def process_batch_transactions(
     consolidated: bool = False,
     rpc_url: Optional[str] = None,
     run_validation: bool = False,
+    max_workers: Optional[int] = None,
 ) -> None:
     """
-    Processes multiple wallet addresses concurrently.
+    Processes multiple wallet addresses concurrently using a dedicated batch ThreadPoolExecutor.
     """
     total = len(addresses)
+    if total == 0:
+        logging.info("No wallet addresses to process.")
+        return
+
     logging.info(f"Starting batch process for {total} wallet(s) on {chain}...")
 
     all_consolidated_transactions = []
+    # Use a dedicated wallet-level executor separate from GLOBAL_EXECUTOR (used for per-wallet
+    # endpoint fetches) to avoid thread-pool starvation deadlocks when len(addresses) >= 10.
+    configured_workers = max_workers if max_workers is not None else 10
+    worker_count = max(1, min(configured_workers, total))
 
-    futures = {
-        GLOBAL_EXECUTOR.submit(
-            process_single_wallet,
-            wallet_address,
-            chain,
-            output_format,
-            start_date,
-            end_date,
-            fees_only,
-            consolidated,
-            i,
-            len(addresses),
-            run_validation,
-            rpc_url,
-            GLOBAL_EXECUTOR,
-        ): wallet_address
-        for i, wallet_address in enumerate(addresses)
-    }
+    with ThreadPoolExecutor(max_workers=worker_count) as batch_executor:
+        futures = {
+            batch_executor.submit(
+                process_single_wallet,
+                wallet_address,
+                chain,
+                output_format,
+                start_date,
+                end_date,
+                fees_only,
+                consolidated,
+                i,
+                total,
+                run_validation,
+                rpc_url,
+                GLOBAL_EXECUTOR,
+            ): wallet_address
+            for i, wallet_address in enumerate(addresses)
+        }
 
-    for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
-        wallet_address = futures[future]
-        try:
-            if consolidated:
-                txs = future.result()
-                for tx in txs:
-                    all_consolidated_transactions.append((wallet_address, tx))
-            else:
-                future.result()
-        except Exception as e:
-            logging.exception(f"Error processing wallet {wallet_address}: {e}")
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing wallets", unit="wallet"):
+            wallet_address = futures[future]
+            try:
+                if consolidated:
+                    txs = future.result()
+                    for tx in txs:
+                        all_consolidated_transactions.append((wallet_address, tx))
+                else:
+                    future.result()
+            except Exception as e:
+                logging.exception(f"Error processing wallet {wallet_address}: {e}")
 
     if consolidated and all_consolidated_transactions:
         # Sort all by date
